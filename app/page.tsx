@@ -1,103 +1,327 @@
-import Image from "next/image";
+"use client"
 
-export default function Home() {
+import { useState, useEffect } from "react"
+import { motion } from "framer-motion"
+import { ArrowLeft, ChevronLeft, ChevronRight, CalendarIcon, Clock, Video, Calendar, Clipboard } from "lucide-react"
+import Link from "next/link"
+import { useQuery } from '@tanstack/react-query'
+import Head from "next/head"
+
+interface Meeting {
+  id: string
+  title: string
+  platform: string
+  startTime: string
+  endTime: string
+  description?: string
+}
+
+const AIRTABLE_URL = "https://api.airtable.com/v0/app2qL011Os47CDj3/tblc6PrAM7agpg1e2"
+const AIRTABLE_TOKEN = "patWV3bGZRRVWS311.25760cb99550e24f03f4ba7573f7ef813530cfa488a4f4d1a2f9952d707b1fe7"
+
+async function fetchMeetings(): Promise<Meeting[]> {
+  const res = await fetch(AIRTABLE_URL, {
+    headers: {
+      Authorization: `Bearer ${AIRTABLE_TOKEN}`,
+    },
+    cache: 'no-store',
+  })
+  if (!res.ok) throw new Error('Failed to fetch meetings')
+  const data = await res.json()
+  console.log(data)
+  return (data.records || []).map((rec: any) => ({
+    id: rec.id,
+    title: rec.fields.Summary || '',
+    platform: Array.isArray(rec.fields.Platform) ? rec.fields.Platform[0] : (rec.fields.Platform || 'Airtable'),
+    startTime: rec.fields.Start,
+    endTime: rec.fields.End,
+    description: rec.fields.Description || '',
+  }))
+}
+
+export default function CalendarPage() {
+  const { data: meetings = [], isLoading, isError, refetch } = useQuery<Meeting[]>({
+    queryKey: ['calendar-meetings'],
+    queryFn: fetchMeetings,
+    refetchOnWindowFocus: false,
+  })
+  const [currentDate, setCurrentDate] = useState(new Date())
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null)
+
+  const getDaysInMonth = (date: Date) => {
+    return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate()
+  }
+
+  const getFirstDayOfMonth = (date: Date) => {
+    return new Date(date.getFullYear(), date.getMonth(), 1).getDay()
+  }
+
+  const formatTime = (timeString: string) => {
+    const date = new Date(timeString)
+    return date.toLocaleTimeString("th-TH", {
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+  }
+
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString("th-TH", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    })
+  }
+
+  const getMeetingsForDate = (date: Date) => {
+    const dateString = date.toISOString().split("T")[0]
+    return meetings.filter((meeting) => {
+      const meetingDate = new Date(meeting.startTime).toISOString().split("T")[0]
+      return meetingDate === dateString
+    })
+  }
+
+  const navigateMonth = (direction: "prev" | "next") => {
+    setCurrentDate((prev) => {
+      const newDate = new Date(prev)
+      if (direction === "prev") {
+        newDate.setMonth(prev.getMonth() - 1)
+      } else {
+        newDate.setMonth(prev.getMonth() + 1)
+      }
+      return newDate
+    })
+  }
+
+  const renderCalendarDays = () => {
+    const daysInMonth = getDaysInMonth(currentDate)
+    const firstDay = getFirstDayOfMonth(currentDate)
+    const days = []
+
+    // Empty cells for days before the first day of the month
+    for (let i = 0; i < firstDay; i++) {
+      days.push(<div key={`empty-${i}`} className="h-8"></div>)
+    }
+
+    // Days of the month
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day)
+      const dayMeetings = getMeetingsForDate(date)
+      const isToday = new Date().toDateString() === date.toDateString()
+      const isSelected = selectedDate?.toDateString() === date.toDateString()
+
+      days.push(
+        <motion.button
+          key={day}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setSelectedDate(date)}
+          className={`h-8 w-8 rounded-full text-xs flex items-center justify-center relative transition-colors ${
+            isSelected
+              ? "bg-stone-800 text-white"
+              : isToday
+                ? "bg-stone-200 text-stone-800"
+                : "hover:bg-stone-100 text-stone-700"
+          }`}
+        >
+          {day}
+          {dayMeetings.length > 0 && (
+            <div className="absolute bottom-0 right-0 w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
+          )}
+        </motion.button>,
+      )
+    }
+
+    return days
+  }
+
+  useEffect(() => {
+    async function fetchAirtableMetaTables() {
+      const baseId = "app2qL011Os47CDj3"
+      const url = `https://api.airtable.com/v0/meta/bases/${baseId}/tables`
+      try {
+        const res = await fetch(url, {
+          headers: {
+            Authorization: `Bearer ${AIRTABLE_TOKEN}`,
+          },
+        })
+        const data = await res.json()
+        console.log("Airtable meta tables:", data)
+      } catch (err) {
+        console.error("Failed to fetch Airtable meta tables", err)
+      }
+    }
+    fetchAirtableMetaTables()
+  }, [])
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <>
+      <Head>
+        <title>ปฏิทินการประชุม | Meeting Calendar</title>
+        <link rel="icon" href="/favicon.ico" />
+      </Head>
+      <div className="min-h-screen paper-bg flex items-center justify-center p-4">
+        <motion.div
+          initial={{ y: 30, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
+          className="w-full max-w-2xl bg-white/90 rounded-3xl shadow-lg border border-stone-200"
+        >
+          {/* Header */}
+          <div className="p-6 pb-3 border-b border-stone-100">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
-  );
+                <h1 className="text-lg font-normal text-stone-800">ปฏิทินการประชุม</h1>
+              </div>
+              <div className="flex space-x-2">
+                <Link href="/create-meeting">
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="flex items-center space-x-1 px-3 py-1 bg-stone-800 hover:bg-stone-900 text-white rounded-2xl text-xs transition-colors"
+                  >
+                    <Video className="w-3 h-3" />
+                    <span>สร้าง Meeting</span>
+                  </motion.button>
+                </Link>
+                <Link href="/meetings">
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="flex items-center space-x-1 px-3 py-1 bg-stone-100 hover:bg-stone-200 rounded-2xl text-xs text-stone-700 transition-colors"
+                  >
+                    <Calendar className="w-3 h-3" />
+                    <span>จัดการ</span>
+                  </motion.button>
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Calendar */}
+              <div className="space-y-4">
+                {/* Calendar Header */}
+                <div className="flex items-center justify-between">
+                  <h2 className="text-sm font-medium text-stone-800">
+                    {currentDate.toLocaleDateString("th-TH", {
+                      year: "numeric",
+                      month: "long",
+                    })}
+                  </h2>
+                  <div className="flex space-x-1">
+                    <motion.button
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => navigateMonth("prev")}
+                      className="p-1 rounded-full hover:bg-stone-100"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </motion.button>
+                    <motion.button
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => navigateMonth("next")}
+                      className="p-1 rounded-full hover:bg-stone-100"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </motion.button>
+                  </div>
+                </div>
+
+                {/* Calendar Grid */}
+                <div className="bg-stone-50 p-4 rounded-2xl border border-stone-100">
+                  {/* Day headers */}
+                  <div className="grid grid-cols-7 gap-1 mb-2">
+                    {["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"].map((day) => (
+                      <div key={day} className="text-xs text-stone-500 text-center py-1">
+                        {day}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Calendar days */}
+                  <div className="grid grid-cols-7 gap-1">{renderCalendarDays()}</div>
+                </div>
+              </div>
+
+              {/* Meeting List for selected day */}
+              <div>
+                {isLoading ? (
+                  <div className="text-center py-12 text-stone-500">กำลังโหลดข้อมูล...</div>
+                ) : isError ? (
+                  <div className="text-center py-12 text-red-500">
+                    เกิดข้อผิดพลาดในการโหลดข้อมูล<br />
+                    <button onClick={() => refetch()} className="underline text-xs mt-2">ลองใหม่อีกครั้ง</button>
+                  </div>
+                ) : selectedDate ? (
+                  <>
+                    <h3 className="text-sm font-medium text-stone-800 mb-2">
+                      การประชุมวันที่ {formatDate(selectedDate)}
+                    </h3>
+                    {getMeetingsForDate(selectedDate).length === 0 ? (
+                      <div className="text-xs text-stone-500">ไม่มีการประชุม</div>
+                    ) : (
+                      <div className="space-y-2 max-h-80 overflow-y-auto scrollbar-thin scrollbar-thumb-stone-300 scrollbar-track-stone-100 pr-1">
+                        {getMeetingsForDate(selectedDate).map((meeting: Meeting) => {
+                          const isPast = new Date(meeting.endTime) < new Date();
+                          return (
+                            <div key={meeting.id} className={`bg-stone-50 p-2 rounded-2xl border border-stone-100 mb-2${isPast ? ' opacity-60 grayscale' : ''}`}> 
+                              <div className="flex items-center justify-between mb-1">
+                                <div className="flex items-center space-x-2">
+                                  <span className="text-xs font-medium text-stone-800">{meeting.title}</span>
+                                  <span className="text-xs text-stone-500 bg-stone-200 px-2 py-0.5 rounded-full">{meeting.platform}</span>
+                                </div>
+                                <div className="flex items-center space-x-1">
+                                  <button
+                                    type="button"
+                                    className={`p-2 rounded-full flex items-center justify-center ${isPast ? 'bg-stone-100 text-stone-300 cursor-not-allowed' : 'hover:bg-stone-200'}`}
+                                    onClick={() => {
+                                      if (!isPast) {
+                                        navigator.clipboard.writeText(window.location.origin + `/meetings/${meeting.id}`)
+                                        alert("คัดลอกลิงก์แล้ว!")
+                                      }
+                                    }}
+                                    title={isPast ? "หมดเวลาประชุมแล้ว" : "คัดลอกลิงก์เข้าร่วม"}
+                                    disabled={isPast}
+                                  >
+                                    <Clipboard className="w-3 h-3" />
+                                  </button>
+                                  <a
+                                    href={isPast ? undefined : `/meetings/${meeting.id}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className={`p-2 rounded-full flex items-center justify-center ${isPast ? 'bg-stone-100 text-stone-300 cursor-not-allowed' : 'bg-stone-800 hover:bg-stone-900 text-white'}`}
+                                    title={isPast ? "หมดเวลาประชุมแล้ว" : "เข้าร่วมการประชุม"}
+                                    style={{ textDecoration: 'none', pointerEvents: isPast ? 'none' : 'auto' }}
+                                    tabIndex={isPast ? -1 : 0}
+                                  >
+                                    <Video className="w-4 h-4" />
+                                  </a>
+                                </div>
+                              </div>
+                              <div className="flex items-center space-x-2 text-xs text-stone-600">
+                                <Clock className="w-3 h-3" />
+                                <span>{formatTime(meeting.startTime)} - {formatTime(meeting.endTime)}</span>
+                              </div>
+                              {meeting.description && (
+                                <div className="text-xs text-stone-600 mt-1">{meeting.description}</div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="text-xs text-stone-500">เลือกวันที่เพื่อดูการประชุม</div>
+                )}
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    </>
+  )
 }
