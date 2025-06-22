@@ -1,66 +1,84 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { motion } from "framer-motion"
-import { ArrowLeft, ChevronLeft, ChevronRight, CalendarIcon, Clock, Video, Calendar, Clipboard } from "lucide-react"
-import Link from "next/link"
-import { useQuery } from '@tanstack/react-query'
-import Head from "next/head"
-import { useUserEmail } from "./providers"
+import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
+import {
+  ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
+  CalendarIcon,
+  Clock,
+  Video,
+  Calendar,
+  Clipboard,
+} from "lucide-react";
+import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
+import Head from "next/head";
+import { useUserEmail } from "./providers";
 
 interface Meeting {
-  id: string
-  title: string
-  platform: string
-  startTime: string
-  endTime: string
-  description?: string
-  attendees: string[]
-  organizer?: string
-  url?: string
+  id: string;
+  title: string;
+  platform: string;
+  startTime: string;
+  endTime: string;
+  description?: string;
+  attendees: string[];
+  organizer?: string;
+  url?: string;
 }
 
-const AIRTABLE_URL = "https://api.airtable.com/v0/app2qL011Os47CDj3/tblc6PrAM7agpg1e2"
-const AIRTABLE_TOKEN = "patWV3bGZRRVWS311.25760cb99550e24f03f4ba7573f7ef813530cfa488a4f4d1a2f9952d707b1fe7"
+const AIRTABLE_URL =
+  "https://api.airtable.com/v0/app2qL011Os47CDj3/tblc6PrAM7agpg1e2";
+const AIRTABLE_TOKEN =
+  "patWV3bGZRRVWS311.25760cb99550e24f03f4ba7573f7ef813530cfa488a4f4d1a2f9952d707b1fe7";
 
 async function fetchMeetings(): Promise<Meeting[]> {
   const res = await fetch(AIRTABLE_URL, {
     headers: {
       Authorization: `Bearer ${AIRTABLE_TOKEN}`,
     },
-    cache: 'no-store',
-  })
-  if (!res.ok) throw new Error('Failed to fetch meetings')
-  const data = await res.json()
-  console.log('=== [CALENDAR] Airtable raw data:', data)
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error("Failed to fetch meetings");
+  const data = await res.json();
+  console.log("=== [CALENDAR] Airtable raw data:", data);
   const mappedMeetings = (data.records || []).map((rec: any) => ({
     id: rec.id,
-    title: rec.fields.Summary || '',
-    platform: Array.isArray(rec.fields.Platform) ? rec.fields.Platform[0] : (rec.fields.Platform || 'Airtable'),
+    title: rec.fields.Summary || "",
+    platform: Array.isArray(rec.fields.Platform)
+      ? rec.fields.Platform[0]
+      : rec.fields.Platform || "Airtable",
     startTime: rec.fields.Start,
     endTime: rec.fields.End,
-    description: rec.fields.Description || '',
+    description: rec.fields.Description || "",
     attendees: rec.fields.Participants || [],
-    organizer: rec.fields.Organizer || '',
-    url: rec.fields.URL || '',
-  }))
-  console.log('=== [CALENDAR] Mapped meetings:', mappedMeetings)
-  return mappedMeetings
+    organizer: rec.fields.Organizer || "",
+    url: rec.fields.URL || "",
+  }));
+  console.log("=== [CALENDAR] Mapped meetings:", mappedMeetings);
+  return mappedMeetings;
 }
 
 export default function CalendarPage() {
-  const { data: meetings = [], isLoading, isError, refetch } = useQuery<Meeting[]>({
-    queryKey: ['calendar-meetings'],
+  const {
+    data: meetings = [],
+    isLoading,
+    isError,
+    refetch,
+  } = useQuery<Meeting[]>({
+    queryKey: ["calendar-meetings"],
     queryFn: fetchMeetings,
     refetchOnWindowFocus: false,
-  })
-  const [currentDate, setCurrentDate] = useState(new Date())
-  const [selectedDate, setSelectedDate] = useState<Date | null>(new Date())
+  });
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   const { userEmail, handleChangeEmail } = useUserEmail();
 
-  console.log('=== [CALENDAR] PAGE MOUNTED ===');
-  console.log('=== [CALENDAR] userEmail:', userEmail);
-  console.log('meetings:', meetings);
+  console.log("=== [CALENDAR] PAGE MOUNTED ===");
+  console.log("=== [CALENDAR] userEmail:", userEmail);
+  console.log("meetings:", meetings);
 
   useEffect(() => {
     if (
@@ -68,81 +86,94 @@ export default function CalendarPage() {
       (selectedDate.getMonth() !== currentDate.getMonth() ||
         selectedDate.getFullYear() !== currentDate.getFullYear())
     ) {
-      setSelectedDate(null)
+      setSelectedDate(null);
     }
-  }, [currentDate])
+  }, [currentDate]);
 
   const getDaysInMonth = (date: Date) => {
-    return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate()
-  }
+    return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+  };
 
   const getFirstDayOfMonth = (date: Date) => {
-    return new Date(date.getFullYear(), date.getMonth(), 1).getDay()
-  }
+    return new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+  };
 
   const formatTime = (timeString: string) => {
-    const date = new Date(timeString)
+    const date = new Date(timeString);
     return date.toLocaleTimeString("th-TH", {
       hour: "2-digit",
       minute: "2-digit",
-    })
-  }
+    });
+  };
 
   const formatDate = (date: Date) => {
     return date.toLocaleDateString("th-TH", {
       year: "numeric",
       month: "long",
       day: "numeric",
-    })
-  }
+    });
+  };
 
   const getMeetingsForDate = (date: Date) => {
-    const dateString = date.toISOString().split("T")[0]
+    const dateString = date.toISOString().split("T")[0];
     return meetings.filter((meeting) => {
-      const meetingDate = new Date(meeting.startTime).toISOString().split("T")[0]
-      return meetingDate === dateString
-    })
-  }
+      const meetingDate = new Date(meeting.startTime)
+        .toISOString()
+        .split("T")[0];
+      return meetingDate === dateString;
+    });
+  };
 
   const navigateMonth = (direction: "prev" | "next") => {
     setCurrentDate((prev) => {
-      const newDate = new Date(prev)
+      const newDate = new Date(prev);
       if (direction === "prev") {
-        newDate.setMonth(prev.getMonth() - 1)
+        newDate.setMonth(prev.getMonth() - 1);
       } else {
-        newDate.setMonth(prev.getMonth() + 1)
+        newDate.setMonth(prev.getMonth() + 1);
       }
-      return newDate
-    })
-  }
+      return newDate;
+    });
+  };
 
   const renderCalendarDays = () => {
-    const daysInMonth = getDaysInMonth(currentDate)
-    const firstDay = getFirstDayOfMonth(currentDate)
-    const days = []
+    const daysInMonth = getDaysInMonth(currentDate);
+    const firstDay = getFirstDayOfMonth(currentDate);
+    const days = [];
 
     // Empty cells for days before the first day of the month
     for (let i = 0; i < firstDay; i++) {
-      days.push(<div key={`empty-${i}`} className="h-8"></div>)
+      days.push(<div key={`empty-${i}`} className="h-8"></div>);
     }
 
     // Days of the month
     for (let day = 1; day <= daysInMonth; day++) {
-      const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day)
-      const dayMeetings = getMeetingsForDate(date)
+      const date = new Date(
+        currentDate.getFullYear(),
+        currentDate.getMonth(),
+        day
+      );
+      const dayMeetings = getMeetingsForDate(date);
       // highlight if user is organizer or attendee for any meeting on this day
-      let highlightType: 'organizer' | 'attendee' | null = null;
+      let highlightType: "organizer" | "attendee" | null = null;
       for (const m of dayMeetings) {
-        if (m.organizer && m.organizer.toLowerCase() === userEmail.toLowerCase()) {
-          highlightType = 'organizer';
+        if (
+          m.organizer &&
+          m.organizer.toLowerCase() === userEmail.toLowerCase()
+        ) {
+          highlightType = "organizer";
           break;
         }
-        if ((Array.isArray(m.attendees) ? m.attendees : []).some(a => a.toLowerCase() === userEmail.toLowerCase())) {
-          highlightType = highlightType || 'attendee';
+        if (
+          (Array.isArray(m.attendees) ? m.attendees : []).some(
+            (a) => a.toLowerCase() === userEmail.toLowerCase()
+          )
+        ) {
+          highlightType = highlightType || "attendee";
         }
       }
-      const isToday = new Date().toDateString() === date.toDateString()
-      const isSelected = selectedDate?.toDateString() === date.toDateString()
+      const isToday = new Date().toDateString() === date.toDateString();
+      const isSelected = selectedDate?.toDateString() === date.toDateString();
 
       days.push(
         <motion.button
@@ -151,42 +182,56 @@ export default function CalendarPage() {
           whileTap={{ scale: 0.95 }}
           onClick={() => setSelectedDate(date)}
           className={`h-8 w-8 rounded-full text-xs flex items-center justify-center relative transition-colors
-            ${isSelected ? "bg-stone-800 text-white" :
-              isToday ? "bg-stone-200 text-stone-800" :
-                highlightType === 'organizer' ? "ring-2 ring-stone-900 text-stone-900" :
-                highlightType === 'attendee' ? "ring-2 ring-stone-500 text-stone-700" :
-                "hover:bg-stone-100 text-stone-700"}
+            ${
+              isSelected
+                ? "bg-stone-800 text-white"
+                : isToday
+                ? "bg-stone-200 text-stone-800"
+                : highlightType === "organizer"
+                ? "ring-2 ring-stone-900 text-stone-900"
+                : highlightType === "attendee"
+                ? "ring-2 ring-stone-500 text-stone-700"
+                : "hover:bg-stone-100 text-stone-700"
+            }
           `}
         >
           {day}
           {dayMeetings.length > 0 && (
-            <div className={`absolute bottom-0 right-0 w-1.5 h-1.5 rounded-full ${highlightType === 'organizer' ? 'bg-stone-900' : highlightType === 'attendee' ? 'bg-stone-500' : 'bg-stone-400'}`}></div>
+            <div
+              className={`absolute bottom-0 right-0 w-1.5 h-1.5 rounded-full ${
+                highlightType === "organizer"
+                  ? "bg-stone-900"
+                  : highlightType === "attendee"
+                  ? "bg-stone-500"
+                  : "bg-stone-400"
+              }`}
+            ></div>
           )}
-        </motion.button>,
-      )
+        </motion.button>
+      );
     }
 
-    return days
-  }
+    return days;
+  };
 
   useEffect(() => {
     async function fetchAirtableMetaTables() {
-      const baseId = "app2qL011Os47CDj3"
-      const url = `https://api.airtable.com/v0/meta/bases/${baseId}/tables`
+      const baseId = "app2qL011Os47CDj3";
+      const url = `https://api.airtable.com/v0/meta/bases/${baseId}/tables`;
       try {
         const res = await fetch(url, {
           headers: {
             Authorization: `Bearer ${AIRTABLE_TOKEN}`,
           },
-        })
-        const data = await res.json()
-        console.log("Airtable meta tables:", data)
+        });
+        const data = await res.json();
+        console.log("Airtable meta tables:", data);
       } catch (err) {
-        console.error("Failed to fetch Airtable meta tables", err)
+        console.error("Failed to fetch Airtable meta tables", err);
       }
     }
-    fetchAirtableMetaTables()
-  }, [])
+    fetchAirtableMetaTables();
+  }, []);
 
   return (
     <>
@@ -205,7 +250,9 @@ export default function CalendarPage() {
           <div className="p-6 pb-3 border-b border-stone-100">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <h1 className="text-lg font-normal text-stone-800">ปฏิทินการประชุม</h1>
+                <h1 className="text-lg font-normal text-stone-800">
+                  ปฏิทินการประชุม
+                </h1>
               </div>
               <div className="flex space-x-2">
                 <Link href="/create-meeting">
@@ -269,98 +316,197 @@ export default function CalendarPage() {
                   {/* Day headers */}
                   <div className="grid grid-cols-7 gap-1 mb-2">
                     {["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"].map((day) => (
-                      <div key={day} className="text-xs text-stone-500 text-center py-1">
+                      <div
+                        key={day}
+                        className="text-xs text-stone-500 text-center py-1"
+                      >
                         {day}
                       </div>
                     ))}
                   </div>
 
                   {/* Calendar days */}
-                  <div className="grid grid-cols-7 gap-1">{renderCalendarDays()}</div>
+                  <div className="grid grid-cols-7 gap-1">
+                    {renderCalendarDays()}
+                  </div>
                 </div>
               </div>
 
               {/* Meeting List for selected day */}
               <div>
                 {isLoading ? (
-                  <div className="text-center py-12 text-stone-500">กำลังโหลดข้อมูล...</div>
+                  <div className="text-center py-12 text-stone-500">
+                    กำลังโหลดข้อมูล...
+                  </div>
                 ) : isError ? (
                   <div className="text-center py-12 text-red-500">
-                    เกิดข้อผิดพลาดในการโหลดข้อมูล<br />
-                    <button onClick={() => refetch()} className="underline text-xs mt-2">ลองใหม่อีกครั้ง</button>
+                    เกิดข้อผิดพลาดในการโหลดข้อมูล
+                    <br />
+                    <button
+                      onClick={() => refetch()}
+                      className="underline text-xs mt-2"
+                    >
+                      ลองใหม่อีกครั้ง
+                    </button>
                   </div>
                 ) : selectedDate ? (
                   <>
-                    <h3 className="text-sm font-medium text-stone-800 mb-2">
+                    <h3 className="text-sm font-medium text-stone-800 mb-2 pl-2">
                       การประชุมวันที่ {formatDate(selectedDate)}
                     </h3>
                     {getMeetingsForDate(selectedDate).length === 0 ? (
-                      <div className="text-xs text-stone-500">ไม่มีการประชุม</div>
+                      <div className="text-xs text-stone-500">
+                        ไม่มีการประชุม
+                      </div>
                     ) : (
-                      <div className="space-y-2 max-h-80 overflow-y-auto scrollbar-thin scrollbar-thumb-stone-300 scrollbar-track-stone-100 pr-1">
-                        {getMeetingsForDate(selectedDate).map((meeting: Meeting) => {
-                          const isPast = new Date(meeting.endTime) < new Date();
-                          const isOrganizer = meeting.organizer && meeting.organizer.toLowerCase() === userEmail.toLowerCase();
-                          const isAttendee = Array.isArray(meeting.attendees) && meeting.attendees.some(a => a.toLowerCase() === userEmail.toLowerCase());
-                          const isUserInvolved = isOrganizer || isAttendee;
-                          return (
-                            <div key={meeting.id} className={`relative bg-stone-50 p-2 rounded-2xl border border-stone-100 mb-2${isPast ? ' opacity-60 grayscale' : ''} ${isUserInvolved ? (isOrganizer ? 'ring-2 ring-stone-900' : 'ring-2 ring-stone-500') : ''}`}> 
-                              {/* Highlight badge for organizer/attendee */}
-                              {isUserInvolved && (
-                                <div className={`absolute top-2 right-2 px-2 py-0.5 rounded-full text-xs font-medium ${isOrganizer ? 'bg-stone-900 text-white' : 'bg-stone-200 text-stone-700 border border-stone-400'}`} style={{zIndex:2}}>
-                                  {isOrganizer ? 'ผู้จัด' : 'ผู้เข้าร่วม'}
-                                </div>
-                              )}
-                              <div className="flex items-center justify-between mb-1">
-                                <div className="flex items-center space-x-2">
-                                  <span className="text-xs font-medium text-stone-800">{meeting.title}</span>
-                                  <span className="text-xs text-stone-500 bg-stone-200 px-2 py-0.5 rounded-full">{meeting.platform}</span>
-                                </div>
-                                {isUserInvolved && (
-                                  <div className="flex items-center space-x-1">
-                                    <button
-                                      type="button"
-                                      className={`p-2 rounded-full flex items-center justify-center ${isPast ? 'bg-stone-100 text-stone-300 cursor-not-allowed' : 'hover:bg-stone-200'}`}
-                                      onClick={() => {
-                                        if (!isPast) {
-                                          navigator.clipboard.writeText(window.location.origin + `/meetings/${meeting.id}`)
-                                          alert("คัดลอกลิงก์แล้ว!")
+                      <div className="space-y-2 max-h-80 overflow-y-auto scrollbar-thin scrollbar-thumb-stone-300 scrollbar-track-stone-100 pr-1 pt-2 pl-2">
+                        {getMeetingsForDate(selectedDate).map(
+                          (meeting: Meeting) => {
+                            const isPast =
+                              new Date(meeting.endTime) < new Date();
+                            const isOrganizer =
+                              meeting.organizer &&
+                              meeting.organizer.toLowerCase() ===
+                                userEmail.toLowerCase();
+                            const isAttendee =
+                              Array.isArray(meeting.attendees) &&
+                              meeting.attendees.some(
+                                (a) =>
+                                  a.toLowerCase() === userEmail.toLowerCase()
+                              );
+                            const isUserInvolved = isOrganizer || isAttendee;
+                            return (
+                              <div
+                                key={meeting.id}
+                                className={`relative bg-stone-50 p-2 rounded-2xl border border-stone-100 mb-2${
+                                  isPast ? " opacity-60 grayscale" : ""
+                                } ${
+                                  isUserInvolved
+                                    ? isOrganizer
+                                      ? "outline outline-stone-900"
+                                      : "outline-2 outline-stone-500"
+                                    : ""
+                                }`}
+                              >
+                                <div className="flex items-center justify-between mb-1">
+                                  <div className="flex items-center space-x-1 flex-nowrap min-w-0">
+                                    <span
+                                      className="text-xs font-medium text-stone-800 truncate max-w-[10rem]"
+                                      title={meeting.title}
+                                    >
+                                      {meeting.title}
+                                    </span>
+                                    <span
+                                      className={`text-xs text-stone-500 bg-stone-200 px-2 py-0.5 rounded-full ${
+                                        meeting.platform === "Google Meet"
+                                          ? "min-w-[3.2rem] max-w-[3.2rem]"
+                                          : "truncate max-w-[5rem]"
+                                      }`}
+                                      title={meeting.platform}
+                                      style={
+                                        meeting.platform === "Google Meet"
+                                          ? { fontSize: "12px" }
+                                          : {}
+                                      }
+                                    >
+                                      {meeting.platform === "Google Meet"
+                                        ? "GMeet"
+                                        : meeting.platform}
+                                    </span>
+                                    {isUserInvolved && (
+                                      <span
+                                        className={` px-1 py-0.5 rounded-full font-medium whitespace-nowrap ${
+                                          isOrganizer
+                                            ? "bg-stone-900 text-white"
+                                            : "bg-stone-200 text-stone-700 border border-stone-400"
+                                        }`}
+                                        style={{ fontSize: "11px" }}
+                                      >
+                                        {isOrganizer ? "ผู้จัด" : "ผู้เข้าร่วม"}
+                                      </span>
+                                    )}
+                                  </div>
+                                  {isUserInvolved && (
+                                    <div className="flex items-center space-x-1">
+                                      <button
+                                        type="button"
+                                        className={`p-2 rounded-full flex items-center justify-center ${
+                                          isPast
+                                            ? "bg-stone-100 text-stone-300 cursor-not-allowed"
+                                            : "hover:bg-stone-200"
+                                        }`}
+                                        onClick={() => {
+                                          if (!isPast) {
+                                            navigator.clipboard.writeText(
+                                              window.location.origin +
+                                                `/meetings/${meeting.id}`
+                                            );
+                                            alert("คัดลอกลิงก์แล้ว!");
+                                          }
+                                        }}
+                                        title={
+                                          isPast
+                                            ? "หมดเวลาประชุมแล้ว"
+                                            : "คัดลอกลิงก์เข้าร่วม"
                                         }
-                                      }}
-                                      title={isPast ? "หมดเวลาประชุมแล้ว" : "คัดลอกลิงก์เข้าร่วม"}
-                                      disabled={isPast}
-                                    >
-                                      <Clipboard className="w-3 h-3" />
-                                    </button>
-                                    <a
-                                      href={isPast ? undefined : `/meetings/${meeting.id}`}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className={`p-2 rounded-full flex items-center justify-center ${isPast ? 'bg-stone-100 text-stone-300 cursor-not-allowed' : 'bg-stone-800 hover:bg-stone-900 text-white'}`}
-                                      title={isPast ? "หมดเวลาประชุมแล้ว" : "เข้าร่วมการประชุม"}
-                                      style={{ textDecoration: 'none', pointerEvents: isPast ? 'none' : 'auto' }}
-                                      tabIndex={isPast ? -1 : 0}
-                                    >
-                                      <Video className="w-4 h-4" />
-                                    </a>
+                                        disabled={isPast}
+                                      >
+                                        <Clipboard className="w-3 h-3" />
+                                      </button>
+                                      <a
+                                        href={
+                                          isPast
+                                            ? undefined
+                                            : `/meetings/${meeting.id}`
+                                        }
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className={`p-2 rounded-full flex items-center justify-center ${
+                                          isPast
+                                            ? "bg-stone-100 text-stone-300 cursor-not-allowed"
+                                            : "bg-stone-800 hover:bg-stone-900 text-white"
+                                        }`}
+                                        title={
+                                          isPast
+                                            ? "หมดเวลาประชุมแล้ว"
+                                            : "เข้าร่วมการประชุม"
+                                        }
+                                        style={{
+                                          textDecoration: "none",
+                                          pointerEvents: isPast
+                                            ? "none"
+                                            : "auto",
+                                        }}
+                                        tabIndex={isPast ? -1 : 0}
+                                      >
+                                        <Video className="w-4 h-4" />
+                                      </a>
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="flex items-center space-x-2 text-xs text-stone-600">
+                                  <Clock className="w-3 h-3" />
+                                  <span>
+                                    {formatTime(meeting.startTime)} -{" "}
+                                    {formatTime(meeting.endTime)}
+                                  </span>
+                                </div>
+                                {meeting.description && (
+                                  <div className="text-xs text-stone-600 mt-1">
+                                    {meeting.description}
                                   </div>
                                 )}
                               </div>
-                              <div className="flex items-center space-x-2 text-xs text-stone-600">
-                                <Clock className="w-3 h-3" />
-                                <span>{formatTime(meeting.startTime)} - {formatTime(meeting.endTime)}</span>
-                              </div>
-                              {meeting.description && (
-                                <div className="text-xs text-stone-600 mt-1">{meeting.description}</div>
-                              )}
-                            </div>
-                          );
-                        })}
+                            );
+                          }
+                        )}
                       </div>
                     )}
                   </>
                 ) : (
-                  <div className="text-xs text-stone-500">เลือกวันที่เพื่อดูการประชุม</div>
+                  <div className="text-xs text-stone-500">
+                    เลือกวันที่เพื่อดูการประชุม
+                  </div>
                 )}
               </div>
             </div>
@@ -368,5 +514,5 @@ export default function CalendarPage() {
         </motion.div>
       </div>
     </>
-  )
+  );
 }
