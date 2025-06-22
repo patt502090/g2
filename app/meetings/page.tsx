@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { ArrowLeft, Edit, Trash2, Calendar, Clock, Plus, Clipboard } from "lucide-react"
 import toast, { Toaster } from "react-hot-toast"
@@ -17,11 +17,12 @@ interface Meeting {
   endTime: string
   description?: string
   attendees: string[]
-  project: {
-    name: string
-    aiEnabled: boolean
-  }
-  audioUploaded?: boolean
+  url?: string
+  plan?: string
+  useFireflies?: boolean
+  firefliesSent?: boolean
+  firefliesTranscriptId?: string
+  organizer?: string
 }
 
 type ViewState = "list" | "edit"
@@ -38,6 +39,7 @@ async function fetchMeetings(): Promise<Meeting[]> {
   })
   if (!res.ok) throw new Error('Failed to fetch meetings')
   const data = await res.json()
+  console.log(data)
   return (data.records || []).map((rec: any) => ({
     id: rec.id,
     title: rec.fields.Summary || '',
@@ -45,12 +47,32 @@ async function fetchMeetings(): Promise<Meeting[]> {
     startTime: rec.fields.Start,
     endTime: rec.fields.End,
     description: rec.fields.Description || '',
-    attendees: [],
-    project: {
-      name: rec.fields.Project || '',
-      aiEnabled: rec.fields['AI Enabled'] || false,
-    },
+    attendees: rec.fields.Participants || [],
+    url: rec.fields.URL || '',
+    plan: rec.fields.Plan ? rec.fields.Plan[0] : '',
+    useFireflies: rec.fields['Use Fireflies'] || false,
+    firefliesSent: rec.fields['Fireflies Sent'] || false,
+    firefliesTranscriptId: rec.fields['Fireflies Transcript ID'] || '',
+    organizer: rec.fields.Organizer || '',
   }))
+}
+
+// Email context/helper
+function getUserEmail() {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('userEmail') || ''
+  }
+  return ''
+}
+function setUserEmail(email: string) {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('userEmail', email)
+  }
+}
+function clearUserEmail() {
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('userEmail')
+  }
 }
 
 export default function MeetingsManager() {
@@ -156,6 +178,11 @@ export default function MeetingsManager() {
       .filter((email) => email)
 
     setEditingMeeting((prev) => (prev ? { ...prev, attendees: attendeesList } : null))
+  }
+
+  const toggleFireflies = (meetingId: string) => {
+    // In real app, this would be an API call to toggle fireflies
+    console.log(`Toggle fireflies for meeting ${meetingId}`)
   }
 
   // Render edit form
@@ -319,6 +346,29 @@ export default function MeetingsManager() {
   const paginatedMeetings = sortedMeetings.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
   // --- End Pagination ---
 
+  // Email context/helper
+  const [userEmail, setUserEmailState] = useState(getUserEmail())
+  const [showEmailModal, setShowEmailModal] = useState(!userEmail)
+  useEffect(() => {
+    if (!userEmail) setShowEmailModal(true)
+  }, [userEmail])
+  function handleSetEmail(email: string) {
+    setUserEmail(email)
+    setUserEmailState(email)
+    setShowEmailModal(false)
+  }
+  function handleChangeEmail() {
+    clearUserEmail()
+    setUserEmailState("")
+    setShowEmailModal(true)
+  }
+
+  const filteredMeetings = userEmail.trim() === ""
+    ? sortedMeetings
+    : sortedMeetings.filter(m => (m.attendees.some(a => a.toLowerCase() === userEmail.trim().toLowerCase()) || (m.organizer && m.organizer.toLowerCase() === userEmail.trim().toLowerCase())))
+  const filteredPaginatedMeetings = filteredMeetings.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  const filteredTotalPages = Math.ceil(filteredMeetings.length / PAGE_SIZE)
+
   return (
     <div className="min-h-screen paper-bg flex items-center justify-center p-4">
       <Toaster
@@ -347,6 +397,33 @@ export default function MeetingsManager() {
           },
         }}
       />
+
+      {/* Email Modal */}
+      {showEmailModal && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-lg p-6 max-w-xs w-full">
+            <h2 className="text-base font-medium mb-2">กรอกอีเมลของคุณ</h2>
+            <input
+              type="email"
+              placeholder="your@email.com"
+              className="w-full px-3 py-2 border border-stone-200 rounded-xl mb-3 text-xs"
+              onKeyDown={e => { if (e.key === 'Enter') handleSetEmail((e.target as HTMLInputElement).value) }}
+              autoFocus
+            />
+            <button
+              className="w-full bg-stone-800 hover:bg-stone-900 text-white rounded-xl py-2 text-xs"
+              onClick={() => {
+                const input = document.querySelector<HTMLInputElement>('input[type=email]')
+                if (input && input.value) handleSetEmail(input.value)
+              }}
+            >ยืนยัน</button>
+          </div>
+        </div>
+      )}
+      {/* Change Email Button */}
+      <div className="flex justify-end px-6 pt-2">
+        <button onClick={handleChangeEmail} className="text-xs text-stone-400 hover:text-stone-700 underline">ล้างอีเมล</button>
+      </div>
 
       <motion.div
         initial={{ y: 30, opacity: 0 }}
@@ -422,67 +499,31 @@ export default function MeetingsManager() {
             </div>
           ) : (
             <div className="space-y-4">
-              {paginatedMeetings.map((meeting: Meeting, idx: number) => {
-                const [audioUploading, setAudioUploading] = useState(false)
-                const [audioFile, setAudioFile] = useState<File | null>(null)
-
-                function AudioUploadPrompt({ meetingIdx }: { meetingIdx: number }) {
-                  const [uploading, setUploading] = useState(false)
-                  const [file, setFile] = useState<File | null>(null)
-                  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-                    if (e.target.files && e.target.files.length > 0) {
-                      setFile(e.target.files[0])
-                    }
-                  }
-                  const handleUpload = () => {
-                    if (!file) return
-                    setUploading(true)
-                    setTimeout(() => {
-                      paginatedMeetings[meetingIdx].audioUploaded = true
-                      setUploading(false)
-                      toast.success("อัปโหลดไฟล์เสียงสำเร็จ!")
-                    }, 1200)
-                  }
-                  return (
-                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex flex-col items-start my-2">
-                      <span className="text-xs text-red-700 font-semibold mb-1">โครงการนี้ไม่ได้เปิด AI กรุณาอัปโหลดไฟล์เสียงของการประชุมนี้</span>
-                      <input
-                        type="file"
-                        accept="audio/*"
-                        onChange={handleFileChange}
-                        className="mb-2 text-xs"
-                        disabled={uploading}
-                      />
-                      <button
-                        onClick={handleUpload}
-                        disabled={!file || uploading}
-                        className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-xs disabled:opacity-50"
-                      >
-                        {uploading ? "กำลังอัปโหลด..." : "อัปโหลดไฟล์เสียง"}
-                      </button>
-                    </div>
-                  )
-                }
-
+              {filteredPaginatedMeetings.map((meeting: Meeting) => {
                 const isPast = new Date(meeting.endTime) < now
                 const meetingUrl = `/meetings/${meeting.id}`
-                const needsAudioUpload = isPast && !meeting.project.aiEnabled && !meeting.audioUploaded
                 return (
                   <div
                     key={meeting.id}
-                    className={`bg-stone-50 p-2 rounded-2xl border border-stone-100 hover:bg-stone-100 transition-colors ${isPast ? 'opacity-60 grayscale' : ''} mb-2`}
+                    className={`p-2 rounded-2xl border transition-colors mb-2 ${
+                      isPast 
+                        ? 'bg-gradient-to-r from-slate-50 to-gray-50 border-slate-200 hover:from-slate-100 hover:to-gray-100' 
+                        : 'bg-stone-50 border-stone-100 hover:bg-stone-100'
+                    }`}
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1 space-y-2">
                         <div className="flex items-center space-x-2">
-                          <h3 className="text-sm font-medium text-stone-800">{meeting.title}</h3>
-                          <span className="text-xs text-stone-500 bg-stone-200 px-2 py-1 rounded-full">
+                          <h3 className={`text-sm font-medium ${isPast ? 'text-slate-700' : 'text-stone-800'}`}>
+                            {meeting.title}
+                          </h3>
+                          <span className={`text-xs px-2 py-1 rounded-full ${
+                            isPast 
+                              ? 'text-slate-600 bg-slate-200' 
+                              : 'text-stone-500 bg-stone-200'
+                          }`}>
                             {meeting.platform}
                           </span>
-                          <span className="text-xs text-stone-400 bg-stone-100 px-2 py-0.5 rounded-full ml-2">{meeting.project.name}</span>
-                          {isPast && (
-                            <span className="text-xs text-white bg-stone-400 px-2 py-0.5 rounded-full ml-2">สิ้นสุดแล้ว</span>
-                          )}
                           {!isPast && (
                             <>
                               <a
@@ -508,10 +549,6 @@ export default function MeetingsManager() {
                             </>
                           )}
                         </div>
-                        {needsAudioUpload && (
-                          <AudioUploadPrompt meetingIdx={idx} />
-                        )}
-
 
                         <div className="flex items-center space-x-4 text-xs text-stone-600">
                           <div className="flex items-center space-x-1">
@@ -527,36 +564,87 @@ export default function MeetingsManager() {
                         </div>
 
                         {meeting.description && (
-                          <p className="text-xs text-stone-600 line-clamp-2">{meeting.description}</p>
+                          <p className={`text-xs line-clamp-2 ${isPast ? 'text-slate-600' : 'text-stone-600'}`}>
+                            {meeting.description}
+                          </p>
+                        )}
+
+                        {meeting.attendees.length > 0 && (
+                          <div className="flex items-center space-x-1">
+                            <span className={`text-xs ${isPast ? 'text-slate-500' : 'text-stone-500'}`}>
+                              ผู้เข้าร่วม:
+                            </span>
+                            <span className={`text-xs ${isPast ? 'text-slate-600' : 'text-stone-600'}`}>
+                              {meeting.attendees.length} คน
+                            </span>
+                          </div>
                         )}
                       </div>
 
                       <div className="flex space-x-2 ml-4">
                         {!isPast && (
-                          <>
-                            <motion.button
-                              disabled
-                              title="เร็วๆ นี้"
-                              className="p-2 bg-stone-200 text-stone-400 rounded-full cursor-not-allowed relative group"
-                            >
-                              <Edit className="w-3 h-3" />
-                              <span className="absolute left-1/2 -translate-x-1/2 top-full mt-1 text-xs bg-stone-700 text-white rounded px-2 py-0.5 opacity-0 group-hover:opacity-100 transition">เร็วๆ นี้</span>
-                            </motion.button>
-                            <motion.button
-                              disabled
-                              title="เร็วๆ นี้"
-                              className="p-2 bg-red-100 text-red-300 rounded-full cursor-not-allowed relative group"
-                            >
-                              <Trash2 className="w-3 h-3" />
-                              <span className="absolute left-1/2 -translate-x-1/2 top-full mt-1 text-xs bg-stone-700 text-white rounded px-2 py-0.5 opacity-0 group-hover:opacity-100 transition">เร็วๆ นี้</span>
-                            </motion.button>
-                          </>
+                          <div className="flex flex-col items-end space-y-2">
+                            <label className="relative inline-flex items-center cursor-pointer">
+                              <input
+                                type="checkbox"
+                                className="sr-only peer"
+                                checked={meeting.useFireflies}
+                                onChange={() => toggleFireflies(meeting.id)}
+                              />
+                              <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-gray-400 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gray-800"></div>
+                              <span className="ml-3 text-xs text-gray-700 font-medium">Auto-Transcription</span>
+                            </label>
+                          </div>
+                        )}
+                        {isPast && (
+                          <div className="flex flex-col items-end space-y-2">
+                            {!meeting.useFireflies && (
+                              <button className="px-3 py-1 bg-gradient-to-r from-gray-700 to-gray-800 hover:from-gray-800 hover:to-gray-900 text-white rounded-lg text-xs font-medium shadow-sm transition-all duration-200 transform hover:scale-105">
+                                Upload Audio
+                              </button>
+                            )}
+                            {meeting.useFireflies && !meeting.firefliesSent && (
+                              <div className="flex items-center space-x-2">
+                                <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></div>
+                                <span className="text-xs text-slate-600">กำลังประมวลผล...</span>
+                              </div>
+                            )}
+                            {meeting.firefliesSent && (
+                              <div className="flex items-center space-x-2">
+                                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                <span className="text-xs text-slate-600">เสร็จสิ้นแล้ว</span>
+                              </div>
+                            )}
+                          </div>
                         )}
                       </div>
                     </div>
                   </div>
                 )
               })}
+              {/* Pagination Controls */}
+              {filteredTotalPages > 1 && (
+                <div className="flex justify-center items-center space-x-2 mt-6">
+                  <button
+                    onClick={() => setPage(page - 1)}
+                    disabled={page === 1}
+                    className="px-3 py-1 rounded-2xl text-xs bg-stone-100 hover:bg-stone-200 disabled:opacity-50"
+                  >
+                    Previous
+                  </button>
+                  <span className="text-xs text-stone-500">
+                    Page {page} of {filteredTotalPages}
+                  </span>
+                  <button
+                    onClick={() => setPage(page + 1)}
+                    disabled={page === filteredTotalPages}
+                    className="px-3 py-1 rounded-2xl text-xs bg-stone-100 hover:bg-stone-200 disabled:opacity-50"
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
+              {/* End Pagination Controls */}
             </div>
           )}
         </div>

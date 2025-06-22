@@ -30,6 +30,11 @@ export default function CreateMeeting() {
     { id: "selZ2vb1L3e4sTlRv", name: "pattlnwza@dev.com", color: "#fdba74" },
     { id: "selQ0ry5ld3J6bXnw", name: "dev@dev.com", color: "#e5e7eb" },
   ]
+  const ORGANIZER_CHOICES = [
+    { id: "org1", name: "patt@example.com", color: "#f9a8d4" },
+    { id: "org221", name: "dev@dev2.com", color: "#f9a8d4" }
+
+  ]
   const [formData, setFormData] = useState<{
     platform: string;
     title: string;
@@ -37,6 +42,8 @@ export default function CreateMeeting() {
     startTime: string;
     endTime: string;
     attendees: string[];
+    organizer: string;
+    sendEmail: boolean;
   }>({
     platform: "Google Meet",
     title: "",
@@ -44,12 +51,19 @@ export default function CreateMeeting() {
     startTime: "",
     endTime: "",
     attendees: [],
+    organizer: "",
+    sendEmail: false,
   })
   const [meetingResponse, setMeetingResponse] = useState<MeetingResponse | null>(null)
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
+    const { name, value, type } = e.target
+    if (type === 'checkbox') {
+      const checked = (e.target as HTMLInputElement).checked
+      setFormData((prev) => ({ ...prev, [name]: checked }))
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: value }))
+    }
   }
 
   const handleAttendeesChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -80,6 +94,11 @@ export default function CreateMeeting() {
       return
     }
 
+    if (!formData.organizer) {
+      toast.error("กรุณาเลือกผู้จัดการประชุม")
+      return
+    }
+
     setFormState("submitting")
 
     try {
@@ -87,6 +106,9 @@ export default function CreateMeeting() {
       const attendeesList = formData.attendees.map(
         (id: string) => PARTICIPANT_CHOICES.find(c => c.id === id)?.name
       ).filter(Boolean)
+
+      // Parse organizer email
+      const organizerEmail = ORGANIZER_CHOICES.find(c => c.id === formData.organizer)?.name || ""
 
       const randomId = Math.random().toString(36).substring(2, 12)
 
@@ -98,6 +120,8 @@ export default function CreateMeeting() {
         startTime: new Date(formData.startTime).toISOString(),
         endTime: new Date(formData.endTime).toISOString(),
         attendees: attendeesList,
+        organizer: organizerEmail,
+        sendEmail: formData.sendEmail,
       }
 
       console.log("Sending data to API:", submitData)
@@ -166,6 +190,8 @@ export default function CreateMeeting() {
       startTime: "",
       endTime: "",
       attendees: [],
+      organizer: "",
+      sendEmail: false,
     })
     setMeetingResponse(null)
     setFormState("form")
@@ -343,6 +369,30 @@ export default function CreateMeeting() {
                   />
                 </motion.div>
 
+                {/* Organizer */}
+                <motion.div
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ duration: 0.3 }}
+                  className="space-y-1"
+                >
+                  <label className="block text-xs text-stone-600 font-normal">เลือกผู้จัดการประชุม *</label>
+                  <select
+                    name="organizer"
+                    value={formData.organizer}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full px-3 py-1.5 text-xs border border-stone-200 rounded-2xl bg-white focus:outline-none focus:border-stone-400 focus:ring-2 focus:ring-stone-200 transition-all duration-200"
+                  >
+                    <option value="">-- เลือกผู้จัดการประชุม --</option>
+                    {ORGANIZER_CHOICES.map(choice => (
+                      <option key={choice.id} value={choice.id}>
+                        {String.fromCharCode(9679)} {choice.name}
+                      </option>
+                    ))}
+                  </select>
+                </motion.div>
+
                 {/* Attendees */}
                 <motion.div
                   initial={{ y: 20, opacity: 0 }}
@@ -366,6 +416,30 @@ export default function CreateMeeting() {
                     ))}
                   </select>
                   <p className="text-xs text-stone-400">เลือกได้หลายคน (กด Ctrl หรือ Cmd ค้างไว้)</p>
+                </motion.div>
+
+                {/* Send Email Toggle */}
+                <motion.div
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ duration: 0.3 }}
+                  className="space-y-1"
+                >
+                  <label className="block text-xs text-stone-600 font-normal">การแจ้งเตือน</label>
+                  <div className="flex items-center space-x-3">
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        name="sendEmail"
+                        className="sr-only peer"
+                        checked={formData.sendEmail}
+                        onChange={handleInputChange}
+                      />
+                      <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-gray-400 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gray-800"></div>
+                      <span className="ml-3 text-xs text-gray-700 font-medium">ส่งอีเมลแจ้งเตือน</span>
+                    </label>
+                  </div>
+                  <p className="text-xs text-stone-400">ส่งอีเมลแจ้งเตือนไปยังผู้เข้าร่วมประชุม</p>
                 </motion.div>
 
                 {/* Submit Button */}

@@ -6,6 +6,7 @@ import { ArrowLeft, ChevronLeft, ChevronRight, CalendarIcon, Clock, Video, Calen
 import Link from "next/link"
 import { useQuery } from '@tanstack/react-query'
 import Head from "next/head"
+import { useUserEmail } from "./providers"
 
 interface Meeting {
   id: string
@@ -14,6 +15,9 @@ interface Meeting {
   startTime: string
   endTime: string
   description?: string
+  attendees: string[]
+  organizer?: string
+  url?: string
 }
 
 const AIRTABLE_URL = "https://api.airtable.com/v0/app2qL011Os47CDj3/tblc6PrAM7agpg1e2"
@@ -28,15 +32,20 @@ async function fetchMeetings(): Promise<Meeting[]> {
   })
   if (!res.ok) throw new Error('Failed to fetch meetings')
   const data = await res.json()
-  console.log(data)
-  return (data.records || []).map((rec: any) => ({
+  console.log('=== [CALENDAR] Airtable raw data:', data)
+  const mappedMeetings = (data.records || []).map((rec: any) => ({
     id: rec.id,
     title: rec.fields.Summary || '',
     platform: Array.isArray(rec.fields.Platform) ? rec.fields.Platform[0] : (rec.fields.Platform || 'Airtable'),
     startTime: rec.fields.Start,
     endTime: rec.fields.End,
     description: rec.fields.Description || '',
+    attendees: rec.fields.Participants || [],
+    organizer: rec.fields.Organizer || '',
+    url: rec.fields.URL || '',
   }))
+  console.log('=== [CALENDAR] Mapped meetings:', mappedMeetings)
+  return mappedMeetings
 }
 
 export default function CalendarPage() {
@@ -46,7 +55,22 @@ export default function CalendarPage() {
     refetchOnWindowFocus: false,
   })
   const [currentDate, setCurrentDate] = useState(new Date())
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null)
+  const [selectedDate, setSelectedDate] = useState<Date | null>(new Date())
+  const { userEmail, handleChangeEmail } = useUserEmail();
+
+  console.log('=== [CALENDAR] PAGE MOUNTED ===');
+  console.log('=== [CALENDAR] userEmail:', userEmail);
+  console.log('meetings:', meetings);
+
+  useEffect(() => {
+    if (
+      selectedDate &&
+      (selectedDate.getMonth() !== currentDate.getMonth() ||
+        selectedDate.getFullYear() !== currentDate.getFullYear())
+    ) {
+      setSelectedDate(null)
+    }
+  }, [currentDate])
 
   const getDaysInMonth = (date: Date) => {
     return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate()
@@ -106,6 +130,17 @@ export default function CalendarPage() {
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day)
       const dayMeetings = getMeetingsForDate(date)
+      // highlight if user is organizer or attendee for any meeting on this day
+      let highlightType: 'organizer' | 'attendee' | null = null;
+      for (const m of dayMeetings) {
+        if (m.organizer && m.organizer.toLowerCase() === userEmail.toLowerCase()) {
+          highlightType = 'organizer';
+          break;
+        }
+        if ((Array.isArray(m.attendees) ? m.attendees : []).some(a => a.toLowerCase() === userEmail.toLowerCase())) {
+          highlightType = highlightType || 'attendee';
+        }
+      }
       const isToday = new Date().toDateString() === date.toDateString()
       const isSelected = selectedDate?.toDateString() === date.toDateString()
 
@@ -115,17 +150,17 @@ export default function CalendarPage() {
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           onClick={() => setSelectedDate(date)}
-          className={`h-8 w-8 rounded-full text-xs flex items-center justify-center relative transition-colors ${
-            isSelected
-              ? "bg-stone-800 text-white"
-              : isToday
-                ? "bg-stone-200 text-stone-800"
-                : "hover:bg-stone-100 text-stone-700"
-          }`}
+          className={`h-8 w-8 rounded-full text-xs flex items-center justify-center relative transition-colors
+            ${isSelected ? "bg-stone-800 text-white" :
+              isToday ? "bg-stone-200 text-stone-800" :
+                highlightType === 'organizer' ? "ring-2 ring-stone-900 text-stone-900" :
+                highlightType === 'attendee' ? "ring-2 ring-stone-500 text-stone-700" :
+                "hover:bg-stone-100 text-stone-700"}
+          `}
         >
           {day}
           {dayMeetings.length > 0 && (
-            <div className="absolute bottom-0 right-0 w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
+            <div className={`absolute bottom-0 right-0 w-1.5 h-1.5 rounded-full ${highlightType === 'organizer' ? 'bg-stone-900' : highlightType === 'attendee' ? 'bg-stone-500' : 'bg-stone-400'}`}></div>
           )}
         </motion.button>,
       )
@@ -170,7 +205,6 @@ export default function CalendarPage() {
           <div className="p-6 pb-3 border-b border-stone-100">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-
                 <h1 className="text-lg font-normal text-stone-800">ปฏิทินการประชุม</h1>
               </div>
               <div className="flex space-x-2">
@@ -266,40 +300,51 @@ export default function CalendarPage() {
                       <div className="space-y-2 max-h-80 overflow-y-auto scrollbar-thin scrollbar-thumb-stone-300 scrollbar-track-stone-100 pr-1">
                         {getMeetingsForDate(selectedDate).map((meeting: Meeting) => {
                           const isPast = new Date(meeting.endTime) < new Date();
+                          const isOrganizer = meeting.organizer && meeting.organizer.toLowerCase() === userEmail.toLowerCase();
+                          const isAttendee = Array.isArray(meeting.attendees) && meeting.attendees.some(a => a.toLowerCase() === userEmail.toLowerCase());
+                          const isUserInvolved = isOrganizer || isAttendee;
                           return (
-                            <div key={meeting.id} className={`bg-stone-50 p-2 rounded-2xl border border-stone-100 mb-2${isPast ? ' opacity-60 grayscale' : ''}`}> 
+                            <div key={meeting.id} className={`relative bg-stone-50 p-2 rounded-2xl border border-stone-100 mb-2${isPast ? ' opacity-60 grayscale' : ''} ${isUserInvolved ? (isOrganizer ? 'ring-2 ring-stone-900' : 'ring-2 ring-stone-500') : ''}`}> 
+                              {/* Highlight badge for organizer/attendee */}
+                              {isUserInvolved && (
+                                <div className={`absolute top-2 right-2 px-2 py-0.5 rounded-full text-xs font-medium ${isOrganizer ? 'bg-stone-900 text-white' : 'bg-stone-200 text-stone-700 border border-stone-400'}`} style={{zIndex:2}}>
+                                  {isOrganizer ? 'ผู้จัด' : 'ผู้เข้าร่วม'}
+                                </div>
+                              )}
                               <div className="flex items-center justify-between mb-1">
                                 <div className="flex items-center space-x-2">
                                   <span className="text-xs font-medium text-stone-800">{meeting.title}</span>
                                   <span className="text-xs text-stone-500 bg-stone-200 px-2 py-0.5 rounded-full">{meeting.platform}</span>
                                 </div>
-                                <div className="flex items-center space-x-1">
-                                  <button
-                                    type="button"
-                                    className={`p-2 rounded-full flex items-center justify-center ${isPast ? 'bg-stone-100 text-stone-300 cursor-not-allowed' : 'hover:bg-stone-200'}`}
-                                    onClick={() => {
-                                      if (!isPast) {
-                                        navigator.clipboard.writeText(window.location.origin + `/meetings/${meeting.id}`)
-                                        alert("คัดลอกลิงก์แล้ว!")
-                                      }
-                                    }}
-                                    title={isPast ? "หมดเวลาประชุมแล้ว" : "คัดลอกลิงก์เข้าร่วม"}
-                                    disabled={isPast}
-                                  >
-                                    <Clipboard className="w-3 h-3" />
-                                  </button>
-                                  <a
-                                    href={isPast ? undefined : `/meetings/${meeting.id}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className={`p-2 rounded-full flex items-center justify-center ${isPast ? 'bg-stone-100 text-stone-300 cursor-not-allowed' : 'bg-stone-800 hover:bg-stone-900 text-white'}`}
-                                    title={isPast ? "หมดเวลาประชุมแล้ว" : "เข้าร่วมการประชุม"}
-                                    style={{ textDecoration: 'none', pointerEvents: isPast ? 'none' : 'auto' }}
-                                    tabIndex={isPast ? -1 : 0}
-                                  >
-                                    <Video className="w-4 h-4" />
-                                  </a>
-                                </div>
+                                {isUserInvolved && (
+                                  <div className="flex items-center space-x-1">
+                                    <button
+                                      type="button"
+                                      className={`p-2 rounded-full flex items-center justify-center ${isPast ? 'bg-stone-100 text-stone-300 cursor-not-allowed' : 'hover:bg-stone-200'}`}
+                                      onClick={() => {
+                                        if (!isPast) {
+                                          navigator.clipboard.writeText(window.location.origin + `/meetings/${meeting.id}`)
+                                          alert("คัดลอกลิงก์แล้ว!")
+                                        }
+                                      }}
+                                      title={isPast ? "หมดเวลาประชุมแล้ว" : "คัดลอกลิงก์เข้าร่วม"}
+                                      disabled={isPast}
+                                    >
+                                      <Clipboard className="w-3 h-3" />
+                                    </button>
+                                    <a
+                                      href={isPast ? undefined : `/meetings/${meeting.id}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className={`p-2 rounded-full flex items-center justify-center ${isPast ? 'bg-stone-100 text-stone-300 cursor-not-allowed' : 'bg-stone-800 hover:bg-stone-900 text-white'}`}
+                                      title={isPast ? "หมดเวลาประชุมแล้ว" : "เข้าร่วมการประชุม"}
+                                      style={{ textDecoration: 'none', pointerEvents: isPast ? 'none' : 'auto' }}
+                                      tabIndex={isPast ? -1 : 0}
+                                    >
+                                      <Video className="w-4 h-4" />
+                                    </a>
+                                  </div>
+                                )}
                               </div>
                               <div className="flex items-center space-x-2 text-xs text-stone-600">
                                 <Clock className="w-3 h-3" />
