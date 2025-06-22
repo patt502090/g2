@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -16,6 +16,7 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import Head from "next/head";
 import { useUserEmail } from "./providers";
+import { createPortal } from "react-dom";
 
 interface Meeting {
   id: string;
@@ -59,6 +60,64 @@ async function fetchMeetings(): Promise<Meeting[]> {
   }));
   console.log("=== [CALENDAR] Mapped meetings:", mappedMeetings);
   return mappedMeetings;
+}
+
+function AttendeesTooltip({ organizer, attendees, children }: { organizer?: string; attendees?: string[]; children: React.ReactNode }) {
+  const [show, setShow] = useState(false);
+  const [coords, setCoords] = useState<{top: number, left: number} | null>(null);
+  const ref = useRef<HTMLSpanElement>(null);
+  const { userEmail } = useUserEmail();
+
+  useEffect(() => {
+    if (show && ref.current) {
+      const rect = ref.current.getBoundingClientRect();
+      setCoords({
+        top: rect.bottom + window.scrollY + 4, // 4px gap
+        left: rect.left + window.scrollX,
+      });
+    }
+  }, [show]);
+
+  return (
+    <span
+      className="relative"
+      ref={ref}
+      onMouseEnter={() => setShow(true)}
+      onMouseLeave={() => setShow(false)}
+      tabIndex={0}
+    >
+      {children}
+      {show && coords && createPortal(
+        <div
+          className="z-50 w-56 bg-white border border-stone-200 rounded-xl shadow-lg p-3 text-xs text-stone-800 whitespace-pre-line"
+          style={{
+            position: "absolute",
+            top: coords.top,
+            left: coords.left,
+          }}
+        >
+          <div className="mb-1 font-semibold text-stone-700">ผู้จัด</div>
+          <div className="mb-2">{organizer ? organizer : <span className="text-stone-400">-</span>}</div>
+          <div className="mb-1 font-semibold text-stone-700">ผู้เข้าร่วม</div>
+          {attendees && attendees.length > 0 ? (
+            <ul className="list-disc list-inside">
+              {attendees.map((a: string, i: number) => (
+                <li key={i}>
+                  {a}
+                  {userEmail && a.toLowerCase() === userEmail.toLowerCase() && (
+                    <span className="text-stone-500 ml-1">(คุณ)</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="text-stone-400">-</div>
+          )}
+        </div>,
+        document.body
+      )}
+    </span>
+  );
 }
 
 export default function CalendarPage() {
@@ -359,9 +418,9 @@ export default function CalendarPage() {
                         ไม่มีการประชุม
                       </div>
                     ) : (
-                      <div className="space-y-2 max-h-80 overflow-y-auto scrollbar-thin scrollbar-thumb-stone-300 scrollbar-track-stone-100 pr-1 pt-2 pl-2">
-                        {getMeetingsForDate(selectedDate).map(
-                          (meeting: Meeting) => {
+                      <div className="max-h-80 overflow-y-auto pr-1 pt-2 pl-2">
+                        <div className="space-y-2 overflow-visible">
+                          {getMeetingsForDate(selectedDate).map((meeting: Meeting) => {
                             const isPast =
                               new Date(meeting.endTime) < new Date();
                             const isOrganizer =
@@ -491,15 +550,36 @@ export default function CalendarPage() {
                                     {formatTime(meeting.endTime)}
                                   </span>
                                 </div>
-                                {meeting.description && (
-                                  <div className="text-xs text-stone-600 mt-1">
-                                    {meeting.description}
+                                {meeting.description ? (
+                                  <div className="flex items-center justify-between text-xs text-stone-600 mt-1">
+                                    <div className="truncate mr-2">{meeting.description}</div>
+                                    <div className="flex items-center space-x-2">
+                                      <AttendeesTooltip organizer={meeting.organizer} attendees={meeting.attendees}>
+                                        <span
+                                          className="px-2 py-0.5 rounded-full bg-stone-200 text-stone-700 text-xs cursor-pointer"
+                                        >
+                                          {Array.isArray(meeting.attendees) ? `${meeting.attendees.length} คนเข้าร่วม` : '0 คนเข้าร่วม'}
+                                        </span>
+                                      </AttendeesTooltip>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="flex justify-end mt-1">
+                                    <div className="flex items-center space-x-2">
+                                      <AttendeesTooltip organizer={meeting.organizer} attendees={meeting.attendees}>
+                                        <span
+                                          className="px-2 py-0.5 rounded-full bg-stone-200 text-stone-700 text-xs cursor-pointer"
+                                        >
+                                          {Array.isArray(meeting.attendees) ? `${meeting.attendees.length} คนเข้าร่วม` : '0 คนเข้าร่วม'}
+                                        </span>
+                                      </AttendeesTooltip>
+                                    </div>
                                   </div>
                                 )}
                               </div>
                             );
-                          }
-                        )}
+                          })}
+                        </div>
                       </div>
                     )}
                   </>
