@@ -43,11 +43,13 @@ export default function UploadModal({ meeting, onClose }: { meeting: any, onClos
     setUploadStatus("idle");
     const formData = new FormData();
     formData.append("file", file);
-    formData.append("meetingId", meeting.id);
 
     try {
-      // Mock API call
-      await new Promise((resolve) => setTimeout(resolve, 1200));
+      const res = await fetch("/api/upload-audio", {
+        method: "POST",
+        body: formData,
+      });
+      if (!res.ok) throw new Error("Upload failed");
       setUploadStatus("success");
     } catch (error) {
       setUploadStatus("error");

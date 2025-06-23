@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useState } from "react"
 import { motion } from "framer-motion"
-import { ArrowLeft, Calendar, Clock, Video, Check, AlertCircle } from "lucide-react"
+import { ArrowLeft, Calendar, Clock, Video, Check, AlertCircle, Info } from "lucide-react"
 import toast, { Toaster } from "react-hot-toast"
 import Link from "next/link"
 
@@ -99,6 +99,7 @@ export default function CreateMeeting() {
     organizer: string;
     sendEmail: boolean;
     aiRoles: string[];
+    useFireflies: boolean;
   }>({
     platform: "Google Meet",
     title: "",
@@ -108,7 +109,8 @@ export default function CreateMeeting() {
     attendees: [],
     organizer: "",
     sendEmail: true,
-    aiRoles: ["notetaker"] // Default role
+    aiRoles: ["notetaker"],
+    useFireflies: true
   })
   const [meetingResponse, setMeetingResponse] = useState<MeetingResponse | null>(null)
 
@@ -116,7 +118,9 @@ export default function CreateMeeting() {
     const { name, value, type } = e.target
     if (type === 'checkbox') {
       const checked = (e.target as HTMLInputElement).checked
-      if (name.startsWith('aiRole_')) {
+      if (name === 'useFireflies') {
+        setFormData(prev => ({ ...prev, useFireflies: checked }));
+      } else if (name.startsWith('aiRole_')) {
         const roleId = name.replace('aiRole_', '')
         setFormData((prev) => ({
           ...prev,
@@ -125,7 +129,7 @@ export default function CreateMeeting() {
             : prev.aiRoles.filter(id => id !== roleId)
         }))
       } else {
-        setFormData((prev) => ({ ...prev, [name]: checked }))
+      setFormData((prev) => ({ ...prev, [name]: checked }))
       }
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }))
@@ -188,6 +192,7 @@ export default function CreateMeeting() {
         attendees: attendeesList,
         organizer: organizerEmail,
         sendEmail: formData.sendEmail,
+        useFireflies: formData.useFireflies,
         aiRoles: formData.aiRoles.map(roleId => ({
           id: roleId,
           name: AI_ROLES.find(r => r.id === roleId)?.name || '',
@@ -263,7 +268,8 @@ export default function CreateMeeting() {
       attendees: [],
       organizer: "",
       sendEmail: true,
-      aiRoles: ["notetaker"]
+      aiRoles: ["notetaker"],
+      useFireflies: true
     })
     setMeetingResponse(null)
     setFormState("form")
@@ -283,185 +289,215 @@ export default function CreateMeeting() {
   // Step 1: Meeting Info
   if (step === 1) {
     return (
-      <div className="min-h-screen paper-bg flex items-center justify-center p-4">
+        <div className="min-h-screen paper-bg flex items-center justify-center p-4">
         <motion.div className="w-full max-w-md bg-white/90 rounded-3xl shadow-lg border border-stone-200">
-          <div className="p-6 pb-3 border-b border-stone-100">
-            <h1 className="text-lg font-normal text-stone-800">สร้าง Meeting</h1>
+            <div className="p-6 pb-3 border-b border-stone-100">
+                <h1 className="text-lg font-normal text-stone-800">สร้าง Meeting</h1>
             <p className="text-xs text-stone-500 mt-1">Step 1: ข้อมูลประชุม</p>
-          </div>
-          <div className="p-6">
+            </div>
+            <div className="p-6">
             <form onSubmit={e => { e.preventDefault(); setStep(2); }} className="space-y-4">
-              {/* Platform */}
-              <motion.div
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ duration: 0.3 }}
-                className="space-y-1"
-              >
-                <label className="block text-xs text-stone-600 font-normal">แพลตฟอร์ม *</label>
-                <select
-                  name="platform"
-                  value={formData.platform}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full px-3 py-1.5 text-xs border border-stone-200 rounded-2xl bg-white focus:outline-none focus:border-stone-400 focus:ring-2 focus:ring-stone-200 transition-all duration-200"
+                {/* Platform */}
+                <motion.div
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ duration: 0.3 }}
+                  className="space-y-1"
                 >
-                  <option value="Google Meet">Google Meet</option>
-                  <option value="Zoom">Zoom</option>
-                  <option value="MS Teams">MS Teams</option>
-                </select>
-              </motion.div>
+                  <label className="block text-xs text-stone-600 font-normal">แพลตฟอร์ม *</label>
+                  <select
+                    name="platform"
+                    value={formData.platform}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full px-3 py-1.5 text-xs border border-stone-200 rounded-2xl bg-white focus:outline-none focus:border-stone-400 focus:ring-2 focus:ring-stone-200 transition-all duration-200"
+                  >
+                    <option value="Google Meet">Google Meet</option>
+                    <option value="Zoom">Zoom</option>
+                    <option value="MS Teams">MS Teams</option>
+                  </select>
+                </motion.div>
 
-              {/* Title */}
-              <motion.div
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ duration: 0.3 }}
-                className="space-y-1"
-              >
-                <label className="block text-xs text-stone-600 font-normal">หัวข้อการประชุม *</label>
-                <input
-                  name="title"
-                  value={formData.title}
-                  onChange={handleInputChange}
-                  placeholder="เช่น ประชุมวางแผน Q2"
-                  required
-                  className="w-full px-3 py-1.5 text-xs border border-stone-200 rounded-2xl bg-white focus:outline-none focus:border-stone-400 focus:ring-2 focus:ring-stone-200 transition-all duration-200"
-                />
-              </motion.div>
-
-              {/* Description */}
-              <motion.div
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ duration: 0.3 }}
-                className="space-y-1"
-              >
-                <label className="block text-xs text-stone-600 font-normal">รายละเอียดเพิ่มเติม</label>
-                <textarea
-                  name="description"
-                  value={formData.description}
-                  onChange={handleInputChange}
-                  placeholder="รายละเอียดการประชุม..."
-                  rows={3}
-                  className="w-full px-3 py-1.5 text-xs border border-stone-200 rounded-2xl bg-white focus:outline-none focus:border-stone-400 focus:ring-2 focus:ring-stone-200 transition-all duration-200 resize-none"
-                />
-              </motion.div>
-
-              {/* Start Time */}
-              <motion.div
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ duration: 0.3 }}
-                className="space-y-1"
-              >
-                <label className="block text-xs text-stone-600 font-normal">วันเวลาเริ่มประชุม *</label>
-                <input
-                  name="startTime"
-                  type="datetime-local"
-                  value={formData.startTime}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full px-3 py-1.5 text-xs border border-stone-200 rounded-2xl bg-white focus:outline-none focus:border-stone-400 focus:ring-2 focus:ring-stone-200 transition-all duration-200"
-                />
-              </motion.div>
-
-              {/* End Time */}
-              <motion.div
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ duration: 0.3 }}
-                className="space-y-1"
-              >
-                <label className="block text-xs text-stone-600 font-normal">วันเวลาสิ้นสุด *</label>
-                <input
-                  name="endTime"
-                  type="datetime-local"
-                  value={formData.endTime}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full px-3 py-1.5 text-xs border border-stone-200 rounded-2xl bg-white focus:outline-none focus:border-stone-400 focus:ring-2 focus:ring-stone-200 transition-all duration-200"
-                />
-              </motion.div>
-
-              {/* Organizer */}
-              <motion.div
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ duration: 0.3 }}
-                className="space-y-1"
-              >
-                <label className="block text-xs text-stone-600 font-normal">เลือกผู้จัดการประชุม *</label>
-                <select
-                  name="organizer"
-                  value={formData.organizer}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full px-3 py-1.5 text-xs border border-stone-200 rounded-2xl bg-white focus:outline-none focus:border-stone-400 focus:ring-2 focus:ring-stone-200 transition-all duration-200"
+                {/* Title */}
+                <motion.div
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ duration: 0.3 }}
+                  className="space-y-1"
                 >
-                  <option value="">-- เลือกผู้จัดการประชุม --</option>
-                  {ORGANIZER_CHOICES.map(choice => (
-                    <option key={choice.id} value={choice.id}>
-                      {String.fromCharCode(9679)} {choice.name}
-                    </option>
-                  ))}
-                </select>
-              </motion.div>
+                  <label className="block text-xs text-stone-600 font-normal">หัวข้อการประชุม *</label>
+                  <input
+                    name="title"
+                    value={formData.title}
+                    onChange={handleInputChange}
+                    placeholder="เช่น ประชุมวางแผน Q2"
+                    required
+                    className="w-full px-3 py-1.5 text-xs border border-stone-200 rounded-2xl bg-white focus:outline-none focus:border-stone-400 focus:ring-2 focus:ring-stone-200 transition-all duration-200"
+                  />
+                </motion.div>
 
-              {/* Attendees */}
-              <motion.div
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ duration: 0.3 }}
-                className="space-y-1"
-              >
-                <label className="block text-xs text-stone-600 font-normal">เลือกผู้เข้าร่วมประชุม</label>
-                <select
-                  name="attendees"
-                  multiple
-                  size={3}
-                  value={formData.attendees}
-                  onChange={handleAttendeesChange}
-                  className="w-full px-3 py-1.5 text-xs border border-stone-200 rounded-2xl bg-white focus:outline-none focus:border-stone-400 focus:ring-2 focus:ring-stone-200 transition-all duration-200"
+                {/* Description */}
+                <motion.div
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ duration: 0.3 }}
+                  className="space-y-1"
                 >
-                  {PARTICIPANT_CHOICES.map(choice => (
-                    <option key={choice.id} value={choice.id}>
-                      {String.fromCharCode(9679)} {choice.name}
-                    </option>
-                  ))}
-                </select>
-                <p className="text-xs text-stone-400">เลือกได้หลายคน (กด Ctrl หรือ Cmd ค้างไว้)</p>
-              </motion.div>
+                  <label className="block text-xs text-stone-600 font-normal">รายละเอียดเพิ่มเติม</label>
+                  <textarea
+                    name="description"
+                    value={formData.description}
+                    onChange={handleInputChange}
+                    placeholder="รายละเอียดการประชุม..."
+                    rows={3}
+                    className="w-full px-3 py-1.5 text-xs border border-stone-200 rounded-2xl bg-white focus:outline-none focus:border-stone-400 focus:ring-2 focus:ring-stone-200 transition-all duration-200 resize-none"
+                  />
+                </motion.div>
 
-              {/* Send Email Toggle */}
+                {/* Start Time */}
+                <motion.div
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ duration: 0.3 }}
+                  className="space-y-1"
+                >
+                  <label className="block text-xs text-stone-600 font-normal">วันเวลาเริ่มประชุม *</label>
+                  <input
+                    name="startTime"
+                    type="datetime-local"
+                    value={formData.startTime}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full px-3 py-1.5 text-xs border border-stone-200 rounded-2xl bg-white focus:outline-none focus:border-stone-400 focus:ring-2 focus:ring-stone-200 transition-all duration-200"
+                  />
+                </motion.div>
+
+                {/* End Time */}
+                <motion.div
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ duration: 0.3 }}
+                  className="space-y-1"
+                >
+                  <label className="block text-xs text-stone-600 font-normal">วันเวลาสิ้นสุด *</label>
+                  <input
+                    name="endTime"
+                    type="datetime-local"
+                    value={formData.endTime}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full px-3 py-1.5 text-xs border border-stone-200 rounded-2xl bg-white focus:outline-none focus:border-stone-400 focus:ring-2 focus:ring-stone-200 transition-all duration-200"
+                  />
+                </motion.div>
+
+                {/* Organizer */}
+                <motion.div
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ duration: 0.3 }}
+                  className="space-y-1"
+                >
+                  <label className="block text-xs text-stone-600 font-normal">เลือกผู้จัดการประชุม *</label>
+                  <select
+                    name="organizer"
+                    value={formData.organizer}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full px-3 py-1.5 text-xs border border-stone-200 rounded-2xl bg-white focus:outline-none focus:border-stone-400 focus:ring-2 focus:ring-stone-200 transition-all duration-200"
+                  >
+                    <option value="">-- เลือกผู้จัดการประชุม --</option>
+                    {ORGANIZER_CHOICES.map(choice => (
+                      <option key={choice.id} value={choice.id}>
+                        {String.fromCharCode(9679)} {choice.name}
+                      </option>
+                    ))}
+                  </select>
+                </motion.div>
+
+                {/* Attendees */}
+                <motion.div
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ duration: 0.3 }}
+                  className="space-y-1"
+                >
+                  <label className="block text-xs text-stone-600 font-normal">เลือกผู้เข้าร่วมประชุม</label>
+                  <select
+                    name="attendees"
+                    multiple
+                    size={3}
+                    value={formData.attendees}
+                    onChange={handleAttendeesChange}
+                    className="w-full px-3 py-1.5 text-xs border border-stone-200 rounded-2xl bg-white focus:outline-none focus:border-stone-400 focus:ring-2 focus:ring-stone-200 transition-all duration-200"
+                  >
+                    {PARTICIPANT_CHOICES.map(choice => (
+                      <option key={choice.id} value={choice.id}>
+                        {String.fromCharCode(9679)} {choice.name}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-stone-400">เลือกได้หลายคน (กด Ctrl หรือ Cmd ค้างไว้)</p>
+                </motion.div>
+
+                {/* Send Email Toggle */}
+                <motion.div
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ duration: 0.3 }}
+                  className="space-y-1"
+                >
+                  <label className="block text-xs text-stone-600 font-normal">ส่งอีเมลแจ้งเตือน</label>
+                  <div className="flex items-center space-x-3">
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        name="sendEmail"
+                        className="sr-only peer"
+                        checked={formData.sendEmail}
+                        onChange={handleInputChange}
+                      />
+                      <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-gray-400 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gray-800"></div>
+                      <span className="ml-3 text-xs text-gray-700 font-medium">ส่งอีเมลแจ้งเตือน</span>
+                    </label>
+                  </div>
+                  <p className="text-xs text-stone-400">ส่งอีเมลแจ้งเตือนไปยังผู้เข้าร่วมประชุม</p>
+                </motion.div>
+
               <motion.div
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ duration: 0.3 }}
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ duration: 0.3 }}
                 className="space-y-1"
               >
-                <label className="block text-xs text-stone-600 font-normal">ส่งอีเมลแจ้งเตือน</label>
+                <label className="block text-xs text-stone-600 font-normal">สรุปอัตโนมัติ</label>
                 <div className="flex items-center space-x-3">
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input
                       type="checkbox"
-                      name="sendEmail"
+                      name="useFireflies"
                       className="sr-only peer"
-                      checked={formData.sendEmail}
+                      checked={formData.useFireflies}
                       onChange={handleInputChange}
                     />
                     <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-gray-400 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gray-800"></div>
-                    <span className="ml-3 text-xs text-gray-700 font-medium">ส่งอีเมลแจ้งเตือน</span>
+                    <span className="ml-3 text-xs text-gray-700 font-medium">สรุปอัตโนมัติ</span>
                   </label>
+                  <span className="relative group cursor-pointer">
+                    <Info className="w-4 h-4 text-gray-400 group-hover:text-gray-700" />
+                    {/* Tooltip */}
+                    <span className="absolute left-0 top-full mt-2 z-50 hidden group-hover:block bg-white border border-stone-200 rounded-xl shadow-lg p-3 text-xs text-stone-800 w-64">
+                      สรุปอัตโนมัติ คือฟีเจอร์ที่ช่วยถอดเสียงและสรุปเนื้อหาการประชุมให้อัตโนมัติหลังจบการประชุม คุณสามารถดูสรุปและข้อความที่ถอดเสียงได้ในแต่ละรายการประชุม
+                    </span>
+                  </span>
                 </div>
-                <p className="text-xs text-stone-400">ส่งอีเมลแจ้งเตือนไปยังผู้เข้าร่วมประชุม</p>
+                <p className="text-xs text-stone-400">เปิดไว้เพื่อให้ระบบช่วยสรุปและถอดเสียงประชุมให้อัตโนมัติ</p>
               </motion.div>
 
               <motion.button type="submit" className="w-full bg-stone-800 hover:bg-stone-900 text-white font-normal py-2 px-4 rounded-2xl transition-all duration-200 text-xs mt-2 cursor-pointer">ถัดไป</motion.button>
-            </form>
-          </div>
-        </motion.div>
-      </div>
+              </form>
+            </div>
+          </motion.div>
+        </div>
     );
   }
 
