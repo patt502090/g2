@@ -52,7 +52,7 @@ export default function CreateMeeting() {
     endTime: "",
     attendees: [],
     organizer: "",
-    sendEmail: false,
+    sendEmail: true,
   })
   const [meetingResponse, setMeetingResponse] = useState<MeetingResponse | null>(null)
 
@@ -191,7 +191,7 @@ export default function CreateMeeting() {
       endTime: "",
       attendees: [],
       organizer: "",
-      sendEmail: false,
+      sendEmail: true,
     })
     setMeetingResponse(null)
     setFormState("form")
@@ -425,7 +425,7 @@ export default function CreateMeeting() {
                   transition={{ duration: 0.3 }}
                   className="space-y-1"
                 >
-                  <label className="block text-xs text-stone-600 font-normal">การแจ้งเตือน</label>
+                  <label className="block text-xs text-stone-600 font-normal">ส่งอีเมลแจ้งเตือน</label>
                   <div className="flex items-center space-x-3">
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input
@@ -450,7 +450,7 @@ export default function CreateMeeting() {
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   type="submit"
-                  className="w-full bg-stone-800 hover:bg-stone-900 text-white font-normal py-2 px-4 rounded-2xl transition-all duration-200 text-xs mt-2"
+                  className="w-full bg-stone-800 hover:bg-stone-900 text-white font-normal py-2 px-4 rounded-2xl transition-all duration-200 text-xs mt-2 cursor-pointer"
                 >
                   สร้าง Meeting
                 </motion.button>

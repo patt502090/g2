@@ -2,12 +2,14 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { ArrowLeft, Edit, Trash2, Calendar, Clock, Plus, Clipboard } from "lucide-react"
+import { ArrowLeft, Edit, Trash2, Calendar, Clock, Plus, Clipboard, LogOut, Info } from "lucide-react"
 import toast, { Toaster } from "react-hot-toast"
 import Link from "next/link"
 import { useQuery } from '@tanstack/react-query'
+import { createPortal } from "react-dom"
+import UploadModal from "../components/UploadModal"
 
 interface Meeting {
   id: string
@@ -75,6 +77,64 @@ function clearUserEmail() {
   }
 }
 
+function AttendeesTooltip({ organizer, attendees, children }: { organizer?: string; attendees?: string[]; children: React.ReactNode }) {
+  const [show, setShow] = useState(false);
+  const [coords, setCoords] = useState<{top: number, left: number} | null>(null);
+  const ref = useRef<HTMLSpanElement>(null);
+  const userEmail = getUserEmail();
+
+  useEffect(() => {
+    if (show && ref.current) {
+      const rect = ref.current.getBoundingClientRect();
+      setCoords({
+        top: rect.bottom + window.scrollY + 4, // 4px gap
+        left: rect.left + window.scrollX,
+      });
+    }
+  }, [show]);
+
+  return (
+    <span
+      className="relative"
+      ref={ref}
+      onMouseEnter={() => setShow(true)}
+      onMouseLeave={() => setShow(false)}
+      tabIndex={0}
+    >
+      {children}
+      {show && coords && createPortal(
+        <div
+          className="z-50 w-56 bg-white border border-stone-200 rounded-xl shadow-lg p-3 text-xs text-stone-800 whitespace-pre-line"
+          style={{
+            position: "absolute",
+            top: coords.top,
+            left: coords.left,
+          }}
+        >
+          <div className="mb-1 font-semibold text-stone-700">ผู้จัด</div>
+          <div className="mb-2">{organizer ? organizer : <span className="text-stone-400">-</span>}</div>
+          <div className="mb-1 font-semibold text-stone-700">ผู้เข้าร่วม</div>
+          {attendees && attendees.length > 0 ? (
+            <ul className="list-disc list-inside">
+              {attendees.map((a: string, i: number) => (
+                <li key={i}>
+                  {a}
+                  {userEmail && a.toLowerCase() === userEmail.toLowerCase() && (
+                    <span className="text-stone-500 ml-1">(คุณ)</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="text-stone-400">-</div>
+          )}
+        </div>,
+        document.body
+      )}
+    </span>
+  );
+}
+
 export default function MeetingsManager() {
   const { data: meetings = [], isLoading, isError, error, refetch } = useQuery<Meeting[]>({
     queryKey: ['meetings'],
@@ -85,6 +145,7 @@ export default function MeetingsManager() {
   const [viewState, setViewState] = useState<ViewState>("list")
   const [editingMeeting, setEditingMeeting] = useState<Meeting | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [uploadMeeting, setUploadMeeting] = useState<Meeting | null>(null)
 
   const formatDateTime = (dateTimeString: string) => {
     const date = new Date(dateTimeString)
@@ -420,10 +481,6 @@ export default function MeetingsManager() {
           </div>
         </div>
       )}
-      {/* Change Email Button */}
-      <div className="flex justify-end px-6 pt-2">
-        <button onClick={handleChangeEmail} className="text-xs text-stone-400 hover:text-stone-700 underline">ล้างอีเมล</button>
-      </div>
 
       <motion.div
         initial={{ y: 30, opacity: 0 }}
@@ -569,15 +626,18 @@ export default function MeetingsManager() {
                           </p>
                         )}
 
-                        {meeting.attendees.length > 0 && (
-                          <div className="flex items-center space-x-1">
-                            <span className={`text-xs ${isPast ? 'text-slate-500' : 'text-stone-500'}`}>
-                              ผู้เข้าร่วม:
+                        {meeting.attendees.length > 0 ? (
+                          <AttendeesTooltip organizer={meeting.organizer} attendees={meeting.attendees}>
+                            <span className={`text-xs cursor-pointer underline underline-offset-2 ${isPast ? 'text-slate-600' : 'text-stone-700'}`}>
+                              ผู้เข้าร่วม {meeting.attendees.length} คน
                             </span>
-                            <span className={`text-xs ${isPast ? 'text-slate-600' : 'text-stone-600'}`}>
-                              {meeting.attendees.length} คน
+                          </AttendeesTooltip>
+                        ) : (
+                          <AttendeesTooltip organizer={meeting.organizer} attendees={meeting.attendees}>
+                            <span className={`text-xs cursor-pointer underline underline-offset-2 ${isPast ? 'text-slate-400' : 'text-stone-400'}`}>
+                              ไม่มีผู้เข้าร่วม
                             </span>
-                          </div>
+                          </AttendeesTooltip>
                         )}
                       </div>
 
@@ -592,15 +652,24 @@ export default function MeetingsManager() {
                                 onChange={() => toggleFireflies(meeting.id)}
                               />
                               <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-gray-400 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gray-800"></div>
-                              <span className="ml-3 text-xs text-gray-700 font-medium">Auto-Transcription</span>
+                              <span className="flex items-center text-xs text-gray-700 font-medium relative group cursor-pointer ml-3">
+                                <span>สรุปอัตโนมัติ</span>
+                                <span className="ml-1">
+                                  <Info className="w-4 h-4 text-gray-400 group-hover:text-gray-700" />
+                                </span>
+                                {/* Tooltip */}
+                                <span className="absolute left-0 top-full mt-2 z-50 hidden group-hover:block bg-white border border-stone-200 rounded-xl shadow-lg p-3 text-xs text-stone-800 w-64">
+                                  สรุปอัตโนมัติ คือฟีเจอร์ที่ช่วยถอดเสียงและสรุปเนื้อหาการประชุมให้อัตโนมัติหลังจบการประชุม คุณสามารถดูสรุปและข้อความที่ถอดเสียงได้ในแต่ละรายการประชุม
+                                </span>
+                              </span>
                             </label>
                           </div>
                         )}
                         {isPast && (
                           <div className="flex flex-col items-end space-y-2">
                             {!meeting.useFireflies && (
-                              <button className="px-3 py-1 bg-gradient-to-r from-gray-700 to-gray-800 hover:from-gray-800 hover:to-gray-900 text-white rounded-lg text-xs font-medium shadow-sm transition-all duration-200 transform hover:scale-105">
-                                Upload Audio
+                              <button className="px-3 py-1 bg-gradient-to-r from-gray-700 to-gray-800 hover:from-gray-800 hover:to-gray-900 text-white rounded-lg text-xs font-medium shadow-sm transition-all duration-200 transform hover:scale-105" onClick={() => setUploadMeeting(meeting)}>
+                                อัปโหลดเสียง
                               </button>
                             )}
                             {meeting.useFireflies && !meeting.firefliesSent && (
@@ -649,6 +718,23 @@ export default function MeetingsManager() {
           )}
         </div>
       </motion.div>
+
+      <div className="fixed bottom-6 left-6 z-50">
+        <button
+          onClick={handleChangeEmail}
+          className="w-12 h-12 rounded-full bg-stone-200 hover:bg-stone-300 flex items-center justify-center shadow-lg transition-colors"
+          title="ล้างอีเมล"
+        >
+          <LogOut className="w-6 h-6 text-stone-700" />
+        </button>
+      </div>
+
+      {uploadMeeting && (
+        <UploadModal
+          meeting={uploadMeeting}
+          onClose={() => setUploadMeeting(null)}
+        />
+      )}
     </div>
   )
 }
