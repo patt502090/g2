@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { ArrowLeft, Edit, Trash2, Calendar, Clock, Plus, Clipboard, LogOut, Info } from "lucide-react"
+import { ArrowLeft, Edit, Trash2, Calendar, Clock, Plus, Clipboard, LogOut, Info, Link as LinkIcon, UploadCloud, Ban } from "lucide-react"
 import toast, { Toaster } from "react-hot-toast"
 import Link from "next/link"
 import { useQuery } from '@tanstack/react-query'
@@ -25,6 +25,7 @@ interface Meeting {
   firefliesSent?: boolean
   firefliesTranscriptId?: string
   organizer?: string
+  roles?: { [key: string]: string[] }
 }
 
 type ViewState = "list" | "edit"
@@ -56,6 +57,7 @@ async function fetchMeetings(): Promise<Meeting[]> {
     firefliesSent: rec.fields['Fireflies Sent'] || false,
     firefliesTranscriptId: rec.fields['Fireflies Transcript ID'] || '',
     organizer: rec.fields.Organizer || '',
+    roles: rec.fields.Roles ? JSON.parse(rec.fields.Roles) : {},
   }))
 }
 
@@ -135,6 +137,151 @@ function AttendeesTooltip({ organizer, attendees, children }: { organizer?: stri
   );
 }
 
+function MeetingCard({ meeting, onEdit, onDelete }: { meeting: Meeting; onEdit: () => void; onDelete: () => void }) {
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const userEmail = getUserEmail();
+  const isOrganizer = userEmail.toLowerCase() === meeting.organizer?.toLowerCase();
+  const isAttendee = meeting.attendees.some(a => a.toLowerCase() === userEmail.toLowerCase());
+  const now = new Date();
+  const isPast = new Date(meeting.endTime) < now;
+  const startTime = new Date(meeting.startTime);
+  const isUpcoming = !isPast && startTime > now;
+  const isOngoing = !isPast && startTime <= now;
+
+  const handleDelete = () => {
+    onDelete();
+  };
+
+  const setUploadMeeting = () => {
+    setShowUploadModal(true);
+  };
+
+  const formatDateTime = (dateTimeString: string) => {
+    const date = new Date(dateTimeString)
+    return date.toLocaleString("th-TH", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+  }
+
+  const formatTime = (timeString: string) => {
+    const date = new Date(timeString)
+    return date.toLocaleTimeString("th-TH", {
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+  }
+
+  const handleCopyLink = () => {
+    const url = meeting.url || `/meetings/${meeting.id}`;
+    if (typeof window !== 'undefined') {
+      navigator.clipboard.writeText(window.location.origin + url);
+      toast.success("คัดลอกลิงก์แล้ว!");
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      className="bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden"
+    >
+      <div className="p-4">
+        <div className="flex items-center w-full gap-2 flex-nowrap ">
+          <div className="flex items-center gap-2 min-w-0">
+            <h3
+              className="truncate min-w-0 max-w-[180px] text-base font-medium text-stone-800"
+              title={meeting.title}
+            >
+              {meeting.title}
+            </h3>
+            <span className="text-xs px-2 py-1 rounded-full bg-stone-100 text-stone-700 whitespace-nowrap flex-shrink-0">{meeting.platform}</span>
+            {isOrganizer && (
+              <span className="text-xs px-2 py-1 rounded-full bg-stone-200 text-stone-800 whitespace-nowrap flex-shrink-0">ผู้จัดประชุม</span>
+            )}
+            {isAttendee && !isOrganizer && (
+              <span className="text-xs px-2 py-1 rounded-full bg-stone-100 text-stone-700 whitespace-nowrap flex-shrink-0">ผู้เข้าร่วม</span>
+            )}
+            {isPast ? (
+              <span className="text-xs px-2 py-1 rounded-full bg-stone-100 text-stone-500 whitespace-nowrap flex-shrink-0">ประชุมเสร็จสิ้น</span>
+            ) : isOngoing ? (
+              <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-700 whitespace-nowrap flex-shrink-0">กำลังประชุม</span>
+            ) : isUpcoming && (isOrganizer || isAttendee) ? (
+              <span className="text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-700 whitespace-nowrap flex-shrink-0">รอเข้าร่วม</span>
+            ) : null}
+          </div>
+          {!isPast && (
+            <div className="flex items-center gap-1 ml-auto flex-shrink-0">
+              <a
+                href={meeting.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`px-3 py-1 text-white rounded-2xl text-xs transition-all duration-200 font-medium flex items-center whitespace-nowrap ${
+                  isOngoing 
+                    ? 'bg-green-600 hover:bg-green-700' 
+                    : 'bg-stone-800 hover:bg-stone-900'
+                }`}
+                style={{ textDecoration: 'none' }}
+              >
+                {isOngoing ? 'เข้าร่วมเลย' : 'เข้าร่วมการประชุม'}
+              </a>
+              <button
+                type="button"
+                className="p-1.5 rounded-full hover:bg-stone-100 transition-colors"
+                onClick={() => {
+                  navigator.clipboard.writeText(window.location.origin + meeting.url)
+                  toast.success("คัดลอกลิงก์แล้ว!")
+                }}
+                title="คัดลอกลิงก์เข้าร่วม"
+              >
+                <Clipboard className="w-3.5 h-3.5 text-stone-600" />
+              </button>
+              <div className="relative group">
+                <button
+                  onClick={() => handleDelete()}
+                  className="p-1.5 text-red-600 hover:bg-red-100 rounded-full transition-colors"
+                  type="button"
+                  title="ยกเลิกการประชุม"
+                >
+                  <Ban className="w-4 h-4" />
+                </button>
+                <span className="absolute left-1/2 -translate-x-1/2 top-full mt-1 px-2 py-1 rounded bg-stone-800 text-white text-xs opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-20 whitespace-nowrap">ยกเลิกการประชุม</span>
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="space-y-2">
+          <div className="flex items-center text-xs text-stone-600">
+            <Calendar className="w-3.5 h-3.5 mr-1" />
+            <span>{formatDateTime(meeting.startTime)}</span>
+            <span className="mx-1">-</span>
+            <span>{formatTime(meeting.endTime)}</span>
+          </div>
+          <AttendeesTooltip organizer={meeting.organizer} attendees={meeting.attendees}>
+            <div className="flex items-center text-xs text-stone-600 cursor-help">
+              <Info className="w-3.5 h-3.5 mr-1" />
+              <span>
+                {meeting.attendees?.length || 0} คนเข้าร่วม
+              </span>
+            </div>
+          </AttendeesTooltip>
+          {meeting.description && (
+            <p className="text-xs text-stone-500 line-clamp-2">{meeting.description}</p>
+          )}
+        </div>
+      </div>
+
+      {showUploadModal && (
+        <UploadModal meeting={meeting} onClose={() => setShowUploadModal(false)} />
+      )}
+    </motion.div>
+  );
+}
+
 export default function MeetingsManager() {
   const { data: meetings = [], isLoading, isError, error, refetch } = useQuery<Meeting[]>({
     queryKey: ['meetings'],
@@ -172,16 +319,16 @@ export default function MeetingsManager() {
   }
 
   const handleDelete = async (meetingId: string) => {
-    if (!confirm("คุณแน่ใจหรือไม่ที่จะลบการประชุมนี้?")) {
+    if (!confirm("คุณแน่ใจหรือไม่ที่จะยกเลิกการประชุมนี้?")) {
       return
     }
 
     try {
       // In real app, this would be an API call
       refetch()
-      toast.success("ลบการประชุมเรียบร้อยแล้ว")
+      toast.success("ยกเลิกการประชุมเรียบร้อยแล้ว")
     } catch (error) {
-      toast.error("เกิดข้อผิดพลาดในการลบการประชุม")
+      toast.error("เกิดข้อผิดพลาดในการยกเลิกการประชุม")
     }
   }
 
@@ -501,7 +648,7 @@ export default function MeetingsManager() {
                   <ArrowLeft className="w-4 h-4" />
                 </motion.button>
               </Link>
-              <h1 className="text-lg font-normal text-stone-800">จัดการ Meeting</h1>
+              <h1 className="text-lg font-normal text-stone-800">รายการ Meeting</h1>
             </div>
             <div className="flex space-x-2">
               <Link href="/create-meeting">
@@ -557,141 +704,132 @@ export default function MeetingsManager() {
           ) : (
             <div className="space-y-4">
               {filteredPaginatedMeetings.map((meeting: Meeting) => {
-                const isPast = new Date(meeting.endTime) < now
-                const meetingUrl = `/meetings/${meeting.id}`
+                const isPast = new Date(meeting.endTime) < now;
+                const meetingUrl = `/meetings/${meeting.id}`;
+                const isOrganizer = userEmail && meeting.organizer && meeting.organizer.toLowerCase() === userEmail.toLowerCase();
+                const isAttendee = userEmail && meeting.attendees.some(a => a.toLowerCase() === userEmail.toLowerCase());
+                const startTime = new Date(meeting.startTime);
+                const isUpcoming = !isPast && startTime > now;
+                const isOngoing = !isPast && startTime <= now;
+
                 return (
                   <div
                     key={meeting.id}
-                    className={`p-2 rounded-2xl border transition-colors mb-2 ${
-                      isPast 
-                        ? 'bg-gradient-to-r from-slate-50 to-gray-50 border-slate-200 hover:from-slate-100 hover:to-gray-100' 
-                        : 'bg-stone-50 border-stone-100 hover:bg-stone-100'
+                    className={`p-4 rounded-2xl border transition-all duration-200 mb-2 hover:shadow-md ${
+                      isPast
+                        ? 'bg-stone-50/50 border-stone-200/50'
+                        : isOngoing
+                          ? 'bg-green-50/30 border-green-200/50'
+                          : isUpcoming && (isOrganizer || isAttendee)
+                            ? 'bg-yellow-50/30 border-yellow-200/50'
+                            : 'bg-white border-stone-200'
                     }`}
                   >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1 space-y-2">
-                        <div className="flex items-center space-x-2">
-                          <h3 className={`text-sm font-medium ${isPast ? 'text-slate-700' : 'text-stone-800'}`}>
-                            {meeting.title}
-                          </h3>
-                          <span className={`text-xs px-2 py-1 rounded-full ${
-                            isPast 
-                              ? 'text-slate-600 bg-slate-200' 
-                              : 'text-stone-500 bg-stone-200'
-                          }`}>
-                            {meeting.platform}
-                          </span>
-                          {!isPast && (
-                            <>
-                              <a
-                                href={meetingUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="ml-2 px-3 py-1 bg-stone-800 hover:bg-stone-900 text-white rounded-2xl text-xs transition-colors font-medium flex items-center"
-                                style={{ textDecoration: 'none' }}
-                              >
-                                เข้าร่วมการประชุม
-                              </a>
-                              <button
-                                type="button"
-                                className="ml-1 p-1 rounded hover:bg-stone-200"
-                                onClick={() => {
-                                  navigator.clipboard.writeText(window.location.origin + meetingUrl)
-                                  toast.success("คัดลอกลิงก์แล้ว!")
-                                }}
-                                title="คัดลอกลิงก์เข้าร่วม"
-                              >
-                                <Clipboard className="w-3 h-3 inline" />
-                              </button>
-                            </>
-                          )}
-                        </div>
-
-                        <div className="flex items-center space-x-4 text-xs text-stone-600">
-                          <div className="flex items-center space-x-1">
-                            <Calendar className="w-3 h-3" />
-                            <span>{formatDateTime(meeting.startTime)}</span>
-                          </div>
-                          <div className="flex items-center space-x-1">
-                            <Clock className="w-3 h-3" />
-                            <span>
-                              {formatTime(meeting.startTime)} - {formatTime(meeting.endTime)}
-                            </span>
-                          </div>
-                        </div>
-
-                        {meeting.description && (
-                          <p className={`text-xs line-clamp-2 ${isPast ? 'text-slate-600' : 'text-stone-600'}`}>
-                            {meeting.description}
-                          </p>
+                    <div className="flex items-center w-full gap-2 flex-nowrap">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <h3
+                          className="truncate min-w-0 max-w-[180px] text-base font-medium text-stone-800"
+                          title={meeting.title}
+                        >
+                          {meeting.title}
+                        </h3>
+                        <span className="text-xs px-2 py-1 rounded-full bg-stone-100 text-stone-700 whitespace-nowrap flex-shrink-0">{meeting.platform}</span>
+                        {isOrganizer && (
+                          <span className="text-xs px-2 py-1 rounded-full bg-stone-200 text-stone-800 whitespace-nowrap flex-shrink-0">ผู้จัดประชุม</span>
                         )}
-
-                        {meeting.attendees.length > 0 ? (
-                          <AttendeesTooltip organizer={meeting.organizer} attendees={meeting.attendees}>
-                            <span className={`text-xs cursor-pointer underline underline-offset-2 ${isPast ? 'text-slate-600' : 'text-stone-700'}`}>
-                              ผู้เข้าร่วม {meeting.attendees.length} คน
-                            </span>
-                          </AttendeesTooltip>
-                        ) : (
-                          <AttendeesTooltip organizer={meeting.organizer} attendees={meeting.attendees}>
-                            <span className={`text-xs cursor-pointer underline underline-offset-2 ${isPast ? 'text-slate-400' : 'text-stone-400'}`}>
-                              ไม่มีผู้เข้าร่วม
-                            </span>
-                          </AttendeesTooltip>
+                        {isAttendee && !isOrganizer && (
+                          <span className="text-xs px-2 py-1 rounded-full bg-stone-100 text-stone-700 whitespace-nowrap flex-shrink-0">ผู้เข้าร่วม</span>
                         )}
+                        {isPast ? (
+                          <span className="text-xs px-2 py-1 rounded-full bg-stone-100 text-stone-500 whitespace-nowrap flex-shrink-0">ประชุมเสร็จสิ้น</span>
+                        ) : isOngoing ? (
+                          <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-700 whitespace-nowrap flex-shrink-0">กำลังประชุม</span>
+                        ) : isUpcoming && (isOrganizer || isAttendee) ? (
+                          <span className="text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-700 whitespace-nowrap flex-shrink-0">รอเข้าร่วม</span>
+                        ) : null}
                       </div>
-
-                      <div className="flex space-x-2 ml-4">
-                        {!isPast && (
-                          <div className="flex flex-col items-end space-y-2">
-                            <label className="relative inline-flex items-center cursor-pointer">
-                              <input
-                                type="checkbox"
-                                className="sr-only peer"
-                                checked={meeting.useFireflies}
-                                onChange={() => toggleFireflies(meeting.id)}
-                              />
-                              <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-gray-400 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gray-800"></div>
-                              <span className="flex items-center text-xs text-gray-700 font-medium relative group cursor-pointer ml-3">
-                                <span>สรุปอัตโนมัติ</span>
-                                <span className="ml-1">
-                                  <Info className="w-4 h-4 text-gray-400 group-hover:text-gray-700" />
-                                </span>
-                                {/* Tooltip */}
-                                <span className="absolute left-0 top-full mt-2 z-50 hidden group-hover:block bg-white border border-stone-200 rounded-xl shadow-lg p-3 text-xs text-stone-800 w-64">
-                                  สรุปอัตโนมัติ คือฟีเจอร์ที่ช่วยถอดเสียงและสรุปเนื้อหาการประชุมให้อัตโนมัติหลังจบการประชุม คุณสามารถดูสรุปและข้อความที่ถอดเสียงได้ในแต่ละรายการประชุม
-                                </span>
-                              </span>
-                            </label>
+                      {!isPast && (
+                        <div className="flex items-center gap-1 ml-auto flex-shrink-0">
+                          <a
+                            href={meetingUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={`px-3 py-1 text-white rounded-2xl text-xs transition-all duration-200 font-medium flex items-center whitespace-nowrap ${
+                              isOngoing 
+                                ? 'bg-green-600 hover:bg-green-700' 
+                                : 'bg-stone-800 hover:bg-stone-900'
+                            }`}
+                            style={{ textDecoration: 'none' }}
+                          >
+                            {isOngoing ? 'เข้าร่วมเลย' : 'เข้าร่วมการประชุม'}
+                          </a>
+                          <button
+                            type="button"
+                            className="p-1.5 rounded-full hover:bg-stone-100 transition-colors"
+                            onClick={() => {
+                              navigator.clipboard.writeText(window.location.origin + meetingUrl)
+                              toast.success("คัดลอกลิงก์แล้ว!")
+                            }}
+                            title="คัดลอกลิงก์เข้าร่วม"
+                          >
+                            <Clipboard className="w-3.5 h-3.5 text-stone-600" />
+                          </button>
+                          <div className="relative group">
+                            <button
+                              onClick={() => handleDelete(meeting.id)}
+                              className="p-1.5 text-red-600 hover:bg-red-100 rounded-full transition-colors"
+                              type="button"
+                              title="ยกเลิกการประชุม"
+                            >
+                              <Ban className="w-4 h-4" />
+                            </button>
+                            <span className="absolute left-1/2 -translate-x-1/2 top-full mt-1 px-2 py-1 rounded bg-stone-800 text-white text-xs opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-20 whitespace-nowrap">ยกเลิกการประชุม</span>
                           </div>
-                        )}
-                        {isPast && (
-                          <div className="flex flex-col items-end space-y-2">
-                            {!meeting.useFireflies && (
-                              <button className="px-3 py-1 bg-gradient-to-r from-gray-700 to-gray-800 hover:from-gray-800 hover:to-gray-900 text-white rounded-lg text-xs font-medium shadow-sm transition-all duration-200 transform hover:scale-105" onClick={() => setUploadMeeting(meeting)}>
-                                อัปโหลดเสียง
-                              </button>
-                            )}
-                            {meeting.useFireflies && !meeting.firefliesSent && (
-                              <div className="flex items-center space-x-2">
-                                <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></div>
-                                <span className="text-xs text-slate-600">กำลังประมวลผล...</span>
-                              </div>
-                            )}
-                            {meeting.firefliesSent && (
-                              <div className="flex items-center space-x-2">
-                                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                                <span className="text-xs text-slate-600">เสร็จสิ้นแล้ว</span>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
+                        </div>
+                      )}
                     </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center text-xs text-stone-600">
+                        <Calendar className="w-3.5 h-3.5 mr-1" />
+                        <span>{formatDateTime(meeting.startTime)}</span>
+                        <span className="mx-1">-</span>
+                        <span>{formatTime(meeting.endTime)}</span>
+                      </div>
+                      <AttendeesTooltip organizer={meeting.organizer} attendees={meeting.attendees}>
+                        <div className="flex items-center text-xs text-stone-600 cursor-help">
+                          <Info className="w-3.5 h-3.5 mr-1" />
+                          <span>
+                            {meeting.attendees?.length || 0} คนเข้าร่วม
+                          </span>
+                        </div>
+                      </AttendeesTooltip>
+                      {meeting.description && (
+                        <p className="text-xs text-stone-500 line-clamp-2">{meeting.description}</p>
+                      )}
+                    </div>
+
+                    {isPast && meeting.useFireflies && !meeting.firefliesSent && (
+                      <div className="flex items-center space-x-2 mt-2">
+                        <div className="w-2 h-2 bg-stone-400 rounded-full animate-pulse"></div>
+                        <span className="text-xs text-stone-600">กำลังประมวลผล...</span>
+                      </div>
+                    )}
+
+                    {isPast && meeting.firefliesTranscriptId && (
+                      <div className="flex items-center space-x-2 mt-2">
+                        <div className="w-2 h-2 bg-stone-600 rounded-full"></div>
+                        <Link 
+                          href={`/meetings/${meeting.id}/transcript`} 
+                          className="text-xs text-stone-600 hover:text-stone-800 hover:underline"
+                        >
+                          ดูบันทึกการประชุม
+                        </Link>
+                      </div>
+                    )}
                   </div>
                 )
               })}
-              {/* Pagination Controls */}
               {filteredTotalPages > 1 && (
                 <div className="flex justify-center items-center space-x-2 mt-6">
                   <button
@@ -713,7 +851,6 @@ export default function MeetingsManager() {
                   </button>
                 </div>
               )}
-              {/* End Pagination Controls */}
             </div>
           )}
         </div>
@@ -728,13 +865,6 @@ export default function MeetingsManager() {
           <LogOut className="w-6 h-6 text-stone-700" />
         </button>
       </div>
-
-      {uploadMeeting && (
-        <UploadModal
-          meeting={uploadMeeting}
-          onClose={() => setUploadMeeting(null)}
-        />
-      )}
     </div>
   )
 }

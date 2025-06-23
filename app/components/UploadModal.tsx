@@ -1,16 +1,36 @@
 "use client";
-import { useState } from "react";
-import { X, UploadCloud, Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { X, UploadCloud, Loader2, AlertCircle } from "lucide-react";
 import { motion } from "framer-motion";
+import { toast } from "react-hot-toast";
+
+// Get user email from localStorage
+function getUserEmail() {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('userEmail') || '';
+  }
+  return '';
+}
 
 export default function UploadModal({ meeting, onClose }: { meeting: any, onClose: () => void }) {
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<"idle" | "success" | "error">("idle");
+  const [userEmail, setUserEmail] = useState<string>('');
+
+  useEffect(() => {
+    setUserEmail(getUserEmail());
+  }, []);
 
   if (!meeting) return null;
 
+  const isOrganizer = userEmail.toLowerCase() === meeting.organizer?.toLowerCase();
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!isOrganizer) {
+      toast.error("คุณไม่มีสิทธิ์อัปโหลดไฟล์เสียงสำหรับการประชุมนี้");
+      return;
+    }
     if (e.target.files) {
       setFile(e.target.files[0]);
       setUploadStatus("idle");
@@ -18,7 +38,7 @@ export default function UploadModal({ meeting, onClose }: { meeting: any, onClos
   };
 
   const handleUpload = async () => {
-    if (!file) return;
+    if (!file || !isOrganizer) return;
     setIsUploading(true);
     setUploadStatus("idle");
     const formData = new FormData();
@@ -57,7 +77,20 @@ export default function UploadModal({ meeting, onClose }: { meeting: any, onClos
             สำหรับ Meeting: <span className="font-medium text-stone-800">{meeting.title}</span>
           </p>
           <p className="text-xs text-stone-500 mb-4">ID: {meeting.id}</p>
-          <div className="space-y-4">
+          
+          {!isOrganizer ? (
+            <div className="border-2 border-yellow-100 bg-yellow-50 rounded-xl p-6 text-center">
+              <div className="flex justify-center mb-2">
+                <AlertCircle className="w-8 h-8 text-yellow-500" />
+              </div>
+              <p className="text-sm text-yellow-700">
+                คุณไม่มีสิทธิ์อัปโหลดไฟล์เสียงสำหรับการประชุมนี้
+              </p>
+              <p className="text-xs text-yellow-600 mt-1">
+                เฉพาะผู้จัดการประชุมเท่านั้นที่สามารถอัปโหลดไฟล์เสียงได้
+              </p>
+            </div>
+          ) : (
             <div>
               <label htmlFor="file-upload" className="cursor-pointer group">
                 <div className="border-2 border-dashed border-stone-300 rounded-xl p-6 text-center transition-colors group-hover:border-stone-400 group-hover:bg-stone-50">
@@ -83,27 +116,36 @@ export default function UploadModal({ meeting, onClose }: { meeting: any, onClos
                 accept=".mp3,.wav,.m4a"
               />
             </div>
-            {uploadStatus === "success" && (
-              <p className="text-sm text-center text-green-600">อัปโหลดสำเร็จ!</p>
-            )}
-            {uploadStatus === "error" && (
-              <p className="text-sm text-center text-red-600">เกิดข้อผิดพลาดในการอัปโหลด</p>
-            )}
-            <button
-              onClick={handleUpload}
-              disabled={!file || isUploading || uploadStatus === "success"}
-              className="w-full flex items-center justify-center px-4 py-2 bg-stone-800 text-white rounded-lg text-sm font-medium hover:bg-stone-900 disabled:bg-stone-400 disabled:cursor-not-allowed transition-colors"
-            >
-              {isUploading ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  กำลังอัปโหลด...
-                </>
-              ) : (
-                "อัปโหลด"
-              )}
-            </button>
-          </div>
+          )}
+          
+          {uploadStatus === "success" && (
+            <p className="text-sm text-center text-green-600 mt-4">อัปโหลดสำเร็จ!</p>
+          )}
+          {uploadStatus === "error" && (
+            <p className="text-sm text-center text-red-600 mt-4">เกิดข้อผิดพลาดในการอัปโหลด</p>
+          )}
+          
+          {isOrganizer && file && (
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={handleUpload}
+                disabled={isUploading}
+                className="px-4 py-2 bg-stone-800 hover:bg-stone-900 text-white rounded-xl text-sm flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isUploading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>กำลังอัปโหลด...</span>
+                  </>
+                ) : (
+                  <>
+                    <UploadCloud className="w-4 h-4" />
+                    <span>อัปโหลด</span>
+                  </>
+                )}
+              </button>
+            </div>
+          )}
         </div>
       </motion.div>
     </div>

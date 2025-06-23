@@ -4,11 +4,63 @@ import type React from "react"
 
 import { useState } from "react"
 import { motion } from "framer-motion"
-import { ArrowLeft, Calendar, Clock, Video, Check } from "lucide-react"
+import { ArrowLeft, Calendar, Clock, Video, Check, AlertCircle } from "lucide-react"
 import toast, { Toaster } from "react-hot-toast"
 import Link from "next/link"
 
 type FormState = "form" | "submitting" | "success"
+
+interface AIRole {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+}
+
+const AI_ROLES: AIRole[] = [
+  {
+    id: "notetaker",
+    name: "AI Notetaker",
+    description: "จดบันทึกและสรุปประเด็นสำคัญจากการประชุม",
+    icon: "📝"
+  },
+  {
+    id: "action_tracker",
+    name: "AI Action Tracker",
+    description: "จับประเด็น Action Items และติดตามงานที่ได้รับมอบหมาย",
+    icon: "📌"
+  },
+  {
+    id: "risk_detector",
+    name: "AI Risk Detector",
+    description: "ตรวจจับความเสี่ยง การตัดสินใจที่อาจมีปัญหา และความขัดแย้ง",
+    icon: "🔍"
+  },
+  {
+    id: "time_keeper",
+    name: "AI Time Keeper",
+    description: "บริหารจัดการเวลา และแจ้งเตือนตามวาระการประชุม",
+    icon: "⏱️"
+  },
+  {
+    id: "sentiment_analyzer",
+    name: "AI Sentiment Analyzer",
+    description: "วิเคราะห์อารมณ์และท่าทีของผู้เข้าร่วมประชุม",
+    icon: "🎭"
+  },
+  {
+    id: "decision_logger",
+    name: "AI Decision Logger",
+    description: "บันทึกการตัดสินใจสำคัญและเหตุผลประกอบ",
+    icon: "✅"
+  },
+  {
+    id: "question_tracker",
+    name: "AI Question Tracker",
+    description: "จับประเด็นคำถามที่ยังไม่ได้รับคำตอบ",
+    icon: "❓"
+  }
+];
 
 interface MeetingResponse {
   meetingLink?: string
@@ -22,7 +74,9 @@ interface MeetingResponse {
 }
 
 export default function CreateMeeting() {
+  const [step, setStep] = useState(1);
   const [formState, setFormState] = useState<FormState>("form")
+  const [showAIInfo, setShowAIInfo] = useState(false)
   const PARTICIPANT_CHOICES = [
     { id: "sel594klOeTQJywxl", name: "patt@patt.com", color: "#f9a8d4" },
     { id: "selQRrcNNL8T4HsqA", name: "patt@test.com1", color: "#c4b5fd" },
@@ -44,6 +98,7 @@ export default function CreateMeeting() {
     attendees: string[];
     organizer: string;
     sendEmail: boolean;
+    aiRoles: string[];
   }>({
     platform: "Google Meet",
     title: "",
@@ -53,6 +108,7 @@ export default function CreateMeeting() {
     attendees: [],
     organizer: "",
     sendEmail: true,
+    aiRoles: ["notetaker"] // Default role
   })
   const [meetingResponse, setMeetingResponse] = useState<MeetingResponse | null>(null)
 
@@ -60,7 +116,17 @@ export default function CreateMeeting() {
     const { name, value, type } = e.target
     if (type === 'checkbox') {
       const checked = (e.target as HTMLInputElement).checked
-      setFormData((prev) => ({ ...prev, [name]: checked }))
+      if (name.startsWith('aiRole_')) {
+        const roleId = name.replace('aiRole_', '')
+        setFormData((prev) => ({
+          ...prev,
+          aiRoles: checked 
+            ? [...prev.aiRoles, roleId]
+            : prev.aiRoles.filter(id => id !== roleId)
+        }))
+      } else {
+        setFormData((prev) => ({ ...prev, [name]: checked }))
+      }
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }))
     }
@@ -122,6 +188,11 @@ export default function CreateMeeting() {
         attendees: attendeesList,
         organizer: organizerEmail,
         sendEmail: formData.sendEmail,
+        aiRoles: formData.aiRoles.map(roleId => ({
+          id: roleId,
+          name: AI_ROLES.find(r => r.id === roleId)?.name || '',
+          description: AI_ROLES.find(r => r.id === roleId)?.description || ''
+        }))
       }
 
       console.log("Sending data to API:", submitData)
@@ -192,6 +263,7 @@ export default function CreateMeeting() {
       attendees: [],
       organizer: "",
       sendEmail: true,
+      aiRoles: ["notetaker"]
     })
     setMeetingResponse(null)
     setFormState("form")
@@ -208,258 +280,307 @@ export default function CreateMeeting() {
     })
   }
 
-  // Render form
-  if (formState === "form") {
+  // Step 1: Meeting Info
+  if (step === 1) {
     return (
-      <>
-        <style>{`
-          select[multiple] option:checked {
-            background: #f3e8ff !important;
-            color: #7c3aed !important;
-            font-weight: bold;
-          }
-          select[multiple] option {
-            /* Try to color the dot using a span, but native select doesn't support HTML, so fallback to gray dot */
-          }
-        `}</style>
-        <div className="min-h-screen paper-bg flex items-center justify-center p-4">
-          <Toaster
-            position="top-right"
-            toastOptions={{
-              duration: 3000,
-              style: {
-                background: "#fff",
-                color: "#333",
-                boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                borderRadius: "16px",
-                padding: "12px 16px",
-                fontSize: "14px",
-              },
-              success: {
-                iconTheme: {
-                  primary: "#4b5563",
-                  secondary: "#fff",
-                },
-              },
-              error: {
-                iconTheme: {
-                  primary: "#ef4444",
-                  secondary: "#fff",
-                },
-              },
-            }}
-          />
-
-          <motion.div
-            initial={{ y: 30, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ duration: 0.6, ease: "easeOut" }}
-            className="w-full max-w-md bg-white/90 rounded-3xl shadow-lg border border-stone-200"
-          >
-            {/* Header */}
-            <div className="p-6 pb-3 border-b border-stone-100">
-              <div className="flex items-center space-x-2">
-                <Link href="/">
-                  <motion.button
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                    className="p-1 rounded-full hover:bg-stone-100"
-                  >
-                    <ArrowLeft className="w-4 h-4" />
-                  </motion.button>
-                </Link>
-                <h1 className="text-lg font-normal text-stone-800">สร้าง Meeting</h1>
-              </div>
-              <p className="text-xs text-stone-500 mt-1">สร้างการประชุมออนไลน์ใหม่</p>
-            </div>
-
-            {/* Form */}
-            <div className="p-6">
-              <form onSubmit={handleSubmit} className="space-y-4">
-                {/* Platform */}
-                <motion.div
-                  initial={{ y: 20, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ duration: 0.3 }}
-                  className="space-y-1"
+      <div className="min-h-screen paper-bg flex items-center justify-center p-4">
+        <motion.div className="w-full max-w-md bg-white/90 rounded-3xl shadow-lg border border-stone-200">
+          <div className="p-6 pb-3 border-b border-stone-100">
+            <h1 className="text-lg font-normal text-stone-800">สร้าง Meeting</h1>
+            <p className="text-xs text-stone-500 mt-1">Step 1: ข้อมูลประชุม</p>
+          </div>
+          <div className="p-6">
+            <form onSubmit={e => { e.preventDefault(); setStep(2); }} className="space-y-4">
+              {/* Platform */}
+              <motion.div
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ duration: 0.3 }}
+                className="space-y-1"
+              >
+                <label className="block text-xs text-stone-600 font-normal">แพลตฟอร์ม *</label>
+                <select
+                  name="platform"
+                  value={formData.platform}
+                  onChange={handleInputChange}
+                  required
+                  className="w-full px-3 py-1.5 text-xs border border-stone-200 rounded-2xl bg-white focus:outline-none focus:border-stone-400 focus:ring-2 focus:ring-stone-200 transition-all duration-200"
                 >
-                  <label className="block text-xs text-stone-600 font-normal">แพลตฟอร์ม *</label>
-                  <select
-                    name="platform"
-                    value={formData.platform}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-1.5 text-xs border border-stone-200 rounded-2xl bg-white focus:outline-none focus:border-stone-400 focus:ring-2 focus:ring-stone-200 transition-all duration-200"
-                  >
-                    <option value="Google Meet">Google Meet</option>
-                    <option value="Zoom">Zoom</option>
-                    <option value="MS Teams">MS Teams</option>
-                  </select>
-                </motion.div>
+                  <option value="Google Meet">Google Meet</option>
+                  <option value="Zoom">Zoom</option>
+                  <option value="MS Teams">MS Teams</option>
+                </select>
+              </motion.div>
 
-                {/* Title */}
-                <motion.div
-                  initial={{ y: 20, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ duration: 0.3 }}
-                  className="space-y-1"
+              {/* Title */}
+              <motion.div
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ duration: 0.3 }}
+                className="space-y-1"
+              >
+                <label className="block text-xs text-stone-600 font-normal">หัวข้อการประชุม *</label>
+                <input
+                  name="title"
+                  value={formData.title}
+                  onChange={handleInputChange}
+                  placeholder="เช่น ประชุมวางแผน Q2"
+                  required
+                  className="w-full px-3 py-1.5 text-xs border border-stone-200 rounded-2xl bg-white focus:outline-none focus:border-stone-400 focus:ring-2 focus:ring-stone-200 transition-all duration-200"
+                />
+              </motion.div>
+
+              {/* Description */}
+              <motion.div
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ duration: 0.3 }}
+                className="space-y-1"
+              >
+                <label className="block text-xs text-stone-600 font-normal">รายละเอียดเพิ่มเติม</label>
+                <textarea
+                  name="description"
+                  value={formData.description}
+                  onChange={handleInputChange}
+                  placeholder="รายละเอียดการประชุม..."
+                  rows={3}
+                  className="w-full px-3 py-1.5 text-xs border border-stone-200 rounded-2xl bg-white focus:outline-none focus:border-stone-400 focus:ring-2 focus:ring-stone-200 transition-all duration-200 resize-none"
+                />
+              </motion.div>
+
+              {/* Start Time */}
+              <motion.div
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ duration: 0.3 }}
+                className="space-y-1"
+              >
+                <label className="block text-xs text-stone-600 font-normal">วันเวลาเริ่มประชุม *</label>
+                <input
+                  name="startTime"
+                  type="datetime-local"
+                  value={formData.startTime}
+                  onChange={handleInputChange}
+                  required
+                  className="w-full px-3 py-1.5 text-xs border border-stone-200 rounded-2xl bg-white focus:outline-none focus:border-stone-400 focus:ring-2 focus:ring-stone-200 transition-all duration-200"
+                />
+              </motion.div>
+
+              {/* End Time */}
+              <motion.div
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ duration: 0.3 }}
+                className="space-y-1"
+              >
+                <label className="block text-xs text-stone-600 font-normal">วันเวลาสิ้นสุด *</label>
+                <input
+                  name="endTime"
+                  type="datetime-local"
+                  value={formData.endTime}
+                  onChange={handleInputChange}
+                  required
+                  className="w-full px-3 py-1.5 text-xs border border-stone-200 rounded-2xl bg-white focus:outline-none focus:border-stone-400 focus:ring-2 focus:ring-stone-200 transition-all duration-200"
+                />
+              </motion.div>
+
+              {/* Organizer */}
+              <motion.div
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ duration: 0.3 }}
+                className="space-y-1"
+              >
+                <label className="block text-xs text-stone-600 font-normal">เลือกผู้จัดการประชุม *</label>
+                <select
+                  name="organizer"
+                  value={formData.organizer}
+                  onChange={handleInputChange}
+                  required
+                  className="w-full px-3 py-1.5 text-xs border border-stone-200 rounded-2xl bg-white focus:outline-none focus:border-stone-400 focus:ring-2 focus:ring-stone-200 transition-all duration-200"
                 >
-                  <label className="block text-xs text-stone-600 font-normal">หัวข้อการประชุม *</label>
+                  <option value="">-- เลือกผู้จัดการประชุม --</option>
+                  {ORGANIZER_CHOICES.map(choice => (
+                    <option key={choice.id} value={choice.id}>
+                      {String.fromCharCode(9679)} {choice.name}
+                    </option>
+                  ))}
+                </select>
+              </motion.div>
+
+              {/* Attendees */}
+              <motion.div
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ duration: 0.3 }}
+                className="space-y-1"
+              >
+                <label className="block text-xs text-stone-600 font-normal">เลือกผู้เข้าร่วมประชุม</label>
+                <select
+                  name="attendees"
+                  multiple
+                  size={3}
+                  value={formData.attendees}
+                  onChange={handleAttendeesChange}
+                  className="w-full px-3 py-1.5 text-xs border border-stone-200 rounded-2xl bg-white focus:outline-none focus:border-stone-400 focus:ring-2 focus:ring-stone-200 transition-all duration-200"
+                >
+                  {PARTICIPANT_CHOICES.map(choice => (
+                    <option key={choice.id} value={choice.id}>
+                      {String.fromCharCode(9679)} {choice.name}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-stone-400">เลือกได้หลายคน (กด Ctrl หรือ Cmd ค้างไว้)</p>
+              </motion.div>
+
+              {/* Send Email Toggle */}
+              <motion.div
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ duration: 0.3 }}
+                className="space-y-1"
+              >
+                <label className="block text-xs text-stone-600 font-normal">ส่งอีเมลแจ้งเตือน</label>
+                <div className="flex items-center space-x-3">
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      name="sendEmail"
+                      className="sr-only peer"
+                      checked={formData.sendEmail}
+                      onChange={handleInputChange}
+                    />
+                    <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-gray-400 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gray-800"></div>
+                    <span className="ml-3 text-xs text-gray-700 font-medium">ส่งอีเมลแจ้งเตือน</span>
+                  </label>
+                </div>
+                <p className="text-xs text-stone-400">ส่งอีเมลแจ้งเตือนไปยังผู้เข้าร่วมประชุม</p>
+              </motion.div>
+
+              <motion.button type="submit" className="w-full bg-stone-800 hover:bg-stone-900 text-white font-normal py-2 px-4 rounded-2xl transition-all duration-200 text-xs mt-2 cursor-pointer">ถัดไป</motion.button>
+            </form>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
+  // Step 2: AI Assistant
+  if (step === 2) {
+    return (
+      <div className="min-h-screen paper-bg flex items-center justify-center p-4">
+        <motion.div className="w-full max-w-md bg-white/90 rounded-3xl shadow-lg border border-stone-200">
+          <div className="p-6 pb-3 border-b border-stone-100">
+            <h1 className="text-lg font-normal text-stone-800">AI Meeting Assistant</h1>
+            <p className="text-xs text-stone-500 mt-1">Step 2: เลือก AI Assistant</p>
+          </div>
+          <div className="p-6 space-y-4">
+            {/* Always-on Notetaker badge */}
+            <span className="flex items-center gap-1 px-2 py-0.5 bg-stone-100 text-stone-700 text-xs rounded-full">
+              <span className="text-base mr-1" role="img" aria-label="notetaker">📝</span>
+              <span>AI Notetaker</span>
+              <span className="ml-1 text-[10px] text-stone-400 leading-none">(บังคับ)</span>
+            </span>
+            {/* เลือก AI อื่น ๆ */}
+            <div className="grid grid-cols-2 gap-3">
+              {AI_ROLES.filter(r => r.id !== 'notetaker').map((role) => (
+                <label key={role.id} className={`relative flex items-start p-3 rounded-xl border cursor-pointer transition-all ${formData.aiRoles.includes(role.id) ? 'border-stone-400 bg-stone-50' : 'border-stone-200 hover:border-stone-300'}`}> 
                   <input
-                    name="title"
-                    value={formData.title}
+                    type="checkbox"
+                    name={`aiRole_${role.id}`}
+                    checked={formData.aiRoles.includes(role.id)}
                     onChange={handleInputChange}
-                    placeholder="เช่น ประชุมวางแผน Q2"
-                    required
-                    className="w-full px-3 py-1.5 text-xs border border-stone-200 rounded-2xl bg-white focus:outline-none focus:border-stone-400 focus:ring-2 focus:ring-stone-200 transition-all duration-200"
+                    className="sr-only"
                   />
-                </motion.div>
-
-                {/* Description */}
-                <motion.div
-                  initial={{ y: 20, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ duration: 0.3 }}
-                  className="space-y-1"
-                >
-                  <label className="block text-xs text-stone-600 font-normal">รายละเอียดเพิ่มเติม</label>
-                  <textarea
-                    name="description"
-                    value={formData.description}
-                    onChange={handleInputChange}
-                    placeholder="รายละเอียดการประชุม..."
-                    rows={3}
-                    className="w-full px-3 py-1.5 text-xs border border-stone-200 rounded-2xl bg-white focus:outline-none focus:border-stone-400 focus:ring-2 focus:ring-stone-200 transition-all duration-200 resize-none"
-                  />
-                </motion.div>
-
-                {/* Start Time */}
-                <motion.div
-                  initial={{ y: 20, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ duration: 0.3 }}
-                  className="space-y-1"
-                >
-                  <label className="block text-xs text-stone-600 font-normal">วันเวลาเริ่มประชุม *</label>
-                  <input
-                    name="startTime"
-                    type="datetime-local"
-                    value={formData.startTime}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-1.5 text-xs border border-stone-200 rounded-2xl bg-white focus:outline-none focus:border-stone-400 focus:ring-2 focus:ring-stone-200 transition-all duration-200"
-                  />
-                </motion.div>
-
-                {/* End Time */}
-                <motion.div
-                  initial={{ y: 20, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ duration: 0.3 }}
-                  className="space-y-1"
-                >
-                  <label className="block text-xs text-stone-600 font-normal">วันเวลาสิ้นสุด *</label>
-                  <input
-                    name="endTime"
-                    type="datetime-local"
-                    value={formData.endTime}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-1.5 text-xs border border-stone-200 rounded-2xl bg-white focus:outline-none focus:border-stone-400 focus:ring-2 focus:ring-stone-200 transition-all duration-200"
-                  />
-                </motion.div>
-
-                {/* Organizer */}
-                <motion.div
-                  initial={{ y: 20, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ duration: 0.3 }}
-                  className="space-y-1"
-                >
-                  <label className="block text-xs text-stone-600 font-normal">เลือกผู้จัดการประชุม *</label>
-                  <select
-                    name="organizer"
-                    value={formData.organizer}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-1.5 text-xs border border-stone-200 rounded-2xl bg-white focus:outline-none focus:border-stone-400 focus:ring-2 focus:ring-stone-200 transition-all duration-200"
-                  >
-                    <option value="">-- เลือกผู้จัดการประชุม --</option>
-                    {ORGANIZER_CHOICES.map(choice => (
-                      <option key={choice.id} value={choice.id}>
-                        {String.fromCharCode(9679)} {choice.name}
-                      </option>
-                    ))}
-                  </select>
-                </motion.div>
-
-                {/* Attendees */}
-                <motion.div
-                  initial={{ y: 20, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ duration: 0.3 }}
-                  className="space-y-1"
-                >
-                  <label className="block text-xs text-stone-600 font-normal">เลือกผู้เข้าร่วมประชุม</label>
-                  <select
-                    name="attendees"
-                    multiple
-                    size={3}
-                    value={formData.attendees}
-                    onChange={handleAttendeesChange}
-                    className="w-full px-3 py-1.5 text-xs border border-stone-200 rounded-2xl bg-white focus:outline-none focus:border-stone-400 focus:ring-2 focus:ring-stone-200 transition-all duration-200"
-                  >
-                    {PARTICIPANT_CHOICES.map(choice => (
-                      <option key={choice.id} value={choice.id}>
-                        {String.fromCharCode(9679)} {choice.name}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="text-xs text-stone-400">เลือกได้หลายคน (กด Ctrl หรือ Cmd ค้างไว้)</p>
-                </motion.div>
-
-                {/* Send Email Toggle */}
-                <motion.div
-                  initial={{ y: 20, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ duration: 0.3 }}
-                  className="space-y-1"
-                >
-                  <label className="block text-xs text-stone-600 font-normal">ส่งอีเมลแจ้งเตือน</label>
-                  <div className="flex items-center space-x-3">
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        name="sendEmail"
-                        className="sr-only peer"
-                        checked={formData.sendEmail}
-                        onChange={handleInputChange}
-                      />
-                      <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-gray-400 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gray-800"></div>
-                      <span className="ml-3 text-xs text-gray-700 font-medium">ส่งอีเมลแจ้งเตือน</span>
-                    </label>
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xl">{role.icon}</span>
+                      <span className="text-sm font-medium text-stone-800">{role.name}</span>
+                    </div>
+                    <p className="mt-1 text-xs text-stone-500">{role.description}</p>
                   </div>
-                  <p className="text-xs text-stone-400">ส่งอีเมลแจ้งเตือนไปยังผู้เข้าร่วมประชุม</p>
-                </motion.div>
-
-                {/* Submit Button */}
-                <motion.button
-                  initial={{ y: 20, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ duration: 0.3 }}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  type="submit"
-                  className="w-full bg-stone-800 hover:bg-stone-900 text-white font-normal py-2 px-4 rounded-2xl transition-all duration-200 text-xs mt-2 cursor-pointer"
-                >
-                  สร้าง Meeting
-                </motion.button>
-              </form>
+                  <div className={`absolute top-3 right-3 w-4 h-4 rounded-full border flex items-center justify-center ${formData.aiRoles.includes(role.id) ? 'border-stone-500 bg-stone-500' : 'border-stone-300'}`}>
+                    {formData.aiRoles.includes(role.id) && (<Check className="w-3 h-3 text-white" />)}
+                  </div>
+                </label>
+              ))}
             </div>
-          </motion.div>
-        </div>
-      </>
-    )
+            <div className="flex justify-between mt-4">
+              <button type="button" onClick={() => setStep(1)} className="text-xs text-stone-500 hover:text-stone-700">ย้อนกลับ</button>
+              <button type="button" onClick={() => setStep(3)} className="bg-stone-800 hover:bg-stone-900 text-white rounded-2xl px-4 py-1 text-xs">ถัดไป</button>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
+  // Step 3: Preview
+  if (step === 3) {
+    return (
+      <div className="min-h-screen paper-bg flex items-center justify-center p-4">
+        <motion.div className="w-full max-w-md bg-white/90 rounded-3xl shadow-lg border border-stone-200">
+          <div className="p-6 pb-3 border-b border-stone-100">
+            <h1 className="text-lg font-normal text-stone-800">Preview</h1>
+            <p className="text-xs text-stone-500 mt-1">Step 3: ตรวจสอบข้อมูลก่อนสร้าง Meeting</p>
+          </div>
+          <div className="p-6 space-y-4">
+            {/* หัวข้อและแพลตฟอร์ม */}
+            <div className="flex items-center gap-2">
+              <span className="text-lg font-semibold text-stone-800">{formData.title}</span>
+              <span className="px-2 py-0.5 rounded-full bg-stone-100 text-stone-700 text-xs">{formData.platform}</span>
+            </div>
+            {/* เวลา */}
+            <div className="flex items-center gap-2 text-sm text-stone-600">
+              <Calendar className="w-4 h-4" />
+              <span>{formatDateTime(formData.startTime)} - {formatDateTime(formData.endTime)}</span>
+            </div>
+            {/* ผู้จัด */}
+            <div className="flex items-center gap-2 text-sm">
+              <span className="inline-block w-4 h-4 rounded-full bg-stone-200 text-stone-600 flex items-center justify-center mr-1" style={{fontSize: '13px'}}>👤</span>
+              <span className="font-medium">{ORGANIZER_CHOICES.find(c => c.id === formData.organizer)?.name}</span>
+            </div>
+            {/* ผู้เข้าร่วม */}
+            <div className="flex items-center gap-2 text-sm">
+              <span className="inline-block w-4 h-4 rounded-full bg-stone-200 text-stone-600 flex items-center justify-center mr-1" style={{fontSize: '13px'}}>👥</span>
+              <span>{formData.attendees.map(id => PARTICIPANT_CHOICES.find(c => c.id === id)?.name).filter(Boolean).join(', ')}</span>
+            </div>
+            {/* รายละเอียด */}
+            {formData.description && (
+              <div className="bg-stone-50 rounded-xl p-3 text-xs text-stone-600 border border-stone-100">
+                {formData.description}
+              </div>
+            )}
+            {/* AI Assistant */}
+            <div>
+              <span className="block text-xs text-stone-500 mb-1">AI Assistant</span>
+              <div className="flex flex-wrap gap-2">
+                <span className="flex items-center gap-1 px-2 py-0.5 bg-stone-100 text-stone-700 text-xs rounded-full">
+                  <span className="text-base mr-1" role="img" aria-label="notetaker">📝</span>
+                  <span>AI Notetaker</span>
+                  <span className="ml-1 text-[10px] text-stone-400 leading-none">(บังคับ)</span>
+                </span>
+                {AI_ROLES.filter(r => r.id !== 'notetaker' && formData.aiRoles.includes(r.id)).map(r => (
+                  <span key={r.id} className="flex items-center gap-1 px-2 py-0.5 bg-stone-50 text-stone-700 text-xs rounded-full">
+                    <span className="text-base">{r.icon}</span>
+                    <span>{r.name}</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+            {/* ส่งอีเมล */}
+            <div className="flex items-center gap-2 text-xs text-stone-500">
+              <span className="inline-block w-4 h-4 rounded-full bg-stone-200 text-stone-600 flex items-center justify-center mr-1" style={{fontSize: '13px'}}>✉️</span>
+              <span>ส่งอีเมลแจ้งเตือน: <b>{formData.sendEmail ? 'ใช่' : 'ไม่'}</b></span>
+            </div>
+            <div className="flex justify-between mt-4">
+              <button type="button" onClick={() => setStep(2)} className="text-xs text-stone-500 hover:text-stone-700">ย้อนกลับ</button>
+              <button type="button" onClick={handleSubmit} className="bg-stone-800 hover:bg-stone-900 text-white rounded-2xl px-4 py-1 text-xs">สร้าง Meeting</button>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    );
   }
 
   // Render submitting state
