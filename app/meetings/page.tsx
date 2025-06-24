@@ -183,12 +183,13 @@ function MeetingCard({
   meeting,
   onEdit,
   onDelete,
+  onUploadAudio,
 }: {
   meeting: Meeting;
   onEdit: () => void;
   onDelete: () => void;
+  onUploadAudio: (meeting: Meeting) => void;
 }) {
-  const [showUploadModal, setShowUploadModal] = useState(false);
   const userEmail = getUserEmail();
   const isOrganizer =
     userEmail.toLowerCase() === meeting.organizer?.toLowerCase();
@@ -203,10 +204,6 @@ function MeetingCard({
 
   const handleDelete = () => {
     onDelete();
-  };
-
-  const setUploadMeeting = (meeting: Meeting) => {
-    setShowUploadModal(true);
   };
 
   const formatDateTime = (dateTimeString: string) => {
@@ -355,13 +352,6 @@ function MeetingCard({
           )}
         </div>
       </div>
-
-      {showUploadModal && (
-        <UploadModal
-          meeting={meeting}
-          onClose={() => setShowUploadModal(false)}
-        />
-      )}
     </motion.div>
   );
 }
@@ -1128,7 +1118,7 @@ export default function MeetingsManager() {
       </div>
 
       {uploadMeeting && (
-        <UploadModal meeting={uploadMeeting} onClose={() => setUploadMeeting(null)} />
+        <UploadModal meeting={uploadMeeting} onClose={() => setUploadMeeting(null)} onSuccess={refetch} />
       )}
 
       {/* Modal for viewing transcript/notes */}
