@@ -952,7 +952,7 @@ export default function MeetingsManager() {
                               <UploadCloud className="w-4 h-4" />
                               <span>อัปโหลดสไลด์ (pptx)</span>
                               <span className="ml-2 px-2 py-0.5 bg-yellow-400 text-white text-[10px] rounded-full font-semibold tracking-wider align-middle">
-                                PRO
+                              PREMIUM
                               </span>
                             </button>
                             <span className="relative group">
@@ -1081,7 +1081,9 @@ export default function MeetingsManager() {
                 ) : (
                   <div className="flex flex-col items-center justify-center text-stone-400 py-8">
                     <span className="text-3xl mb-2">🗒️</span>
-                    <span className="text-sm">ไม่มี Transcript</span>
+                    <span className="text-sm">ไม่มี Transcript
+                      <span className="ml-2 px-2 py-0.5 bg-yellow-400 text-white text-[10px] rounded-full font-semibold tracking-wider align-middle">PREMIUM</span>
+                    </span>
                   </div>
                 )
               ) : viewMeeting.meetingNotes ? (

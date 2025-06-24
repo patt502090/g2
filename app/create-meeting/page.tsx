@@ -513,7 +513,7 @@ export default function CreateMeeting() {
                   >
                     <div className="flex items-center gap-2 mb-1">
                       <label className="block text-xs text-stone-600 font-normal">ลิงก์ประชุม *</label>
-                      <span className="px-2 py-0.5 bg-yellow-400 text-white text-[10px] rounded-full font-semibold tracking-wider align-middle ml-1">PRO</span>
+                      <span className="px-2 py-0.5 bg-yellow-400 text-white text-[10px] rounded-full font-semibold tracking-wider align-middle ml-1">PREMIUM</span>
                     </div>
                     <input
                       name="meetingLink"
@@ -678,7 +678,7 @@ export default function CreateMeeting() {
                   transition={{ duration: 0.3 }}
                 className="space-y-1"
               >
-                <label className="block text-xs text-stone-600 font-normal">สรุปอัตโนมัติ <span className="ml-2 px-2 py-0.5 bg-yellow-400 text-white text-[10px] rounded-full font-semibold tracking-wider align-middle">PRO</span></label>
+                <label className="block text-xs text-stone-600 font-normal">สรุปอัตโนมัติ <span className="ml-2 px-2 py-0.5 bg-yellow-400 text-white text-[10px] rounded-full font-semibold tracking-wider align-middle">PREMIUM</span></label>
                 <div className="flex items-center space-x-3">
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input
@@ -744,7 +744,7 @@ export default function CreateMeeting() {
                         <Icon className="text-xl" />
                         <span className="text-sm font-medium text-stone-800">{role.name}</span>
                         {role.pro && (
-                          <span className="ml-2 px-2 py-0.5 bg-yellow-400 text-white text-[10px] rounded-full font-semibold tracking-wider">PRO</span>
+                          <span className="ml-2 px-2 py-0.5 bg-yellow-400 text-white text-[10px] rounded-full font-semibold tracking-wider">PREMIUM</span>
                         )}
                       </div>
                       <p className="mt-1 text-xs text-stone-500">{role.description}</p>
@@ -819,7 +819,7 @@ export default function CreateMeeting() {
                         <Icon className="text-base" />
                         <span>{r.name}</span>
                         {r.pro && (
-                          <span className="ml-1 px-2 py-0.5 bg-yellow-400 text-white text-[10px] rounded-full font-semibold tracking-wider">PRO</span>
+                          <span className="ml-1 px-2 py-0.5 bg-yellow-400 text-white text-[10px] rounded-full font-semibold tracking-wider">PREMIUM</span>
                         )}
                       </span>
                     );
