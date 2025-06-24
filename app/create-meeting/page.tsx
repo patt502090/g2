@@ -15,6 +15,7 @@ interface AIRole {
   name: string;
   description: string;
   icon: React.ComponentType<{ className?: string }>;
+  pro?: boolean;
 }
 
 const AI_ROLES: AIRole[] = [
@@ -22,7 +23,8 @@ const AI_ROLES: AIRole[] = [
     id: "notetaker",
     name: "AI Notetaker",
     description: "จดบันทึกและสรุปประเด็นสำคัญจากการประชุม",
-    icon: FileText
+    icon: FileText,
+    pro: true
   },
   {
     id: "action_tracker",
@@ -34,31 +36,36 @@ const AI_ROLES: AIRole[] = [
     id: "risk_detector",
     name: "AI Risk Detector",
     description: "ตรวจจับความเสี่ยง การตัดสินใจที่อาจมีปัญหา และความขัดแย้ง",
-    icon: ShieldAlert
+    icon: ShieldAlert,
+    pro: true
   },
   {
     id: "time_keeper",
     name: "AI Time Keeper",
     description: "บริหารจัดการเวลา และแจ้งเตือนตามวาระการประชุม",
-    icon: Timer
+    icon: Timer,
+    pro: true
   },
   {
     id: "sentiment_analyzer",
     name: "AI Sentiment Analyzer",
     description: "วิเคราะห์อารมณ์และท่าทีของผู้เข้าร่วมประชุม",
-    icon: Smile
+    icon: Smile,
+    pro: true
   },
   {
     id: "decision_logger",
     name: "AI Decision Logger",
     description: "บันทึกการตัดสินใจสำคัญและเหตุผลประกอบ",
-    icon: CheckCircle
+    icon: CheckCircle,
+    pro: true
   },
   {
     id: "question_tracker",
     name: "AI Question Tracker",
     description: "จับประเด็นคำถามที่ยังไม่ได้รับคำตอบ",
-    icon: HelpCircle
+    icon: HelpCircle,
+    pro: true
   }
 ];
 
@@ -469,7 +476,7 @@ export default function CreateMeeting() {
                   transition={{ duration: 0.3 }}
                 className="space-y-1"
               >
-                <label className="block text-xs text-stone-600 font-normal">สรุปอัตโนมัติ</label>
+                <label className="block text-xs text-stone-600 font-normal">สรุปอัตโนมัติ <span className="ml-2 px-2 py-0.5 bg-yellow-400 text-white text-[10px] rounded-full font-semibold tracking-wider align-middle">PRO</span></label>
                 <div className="flex items-center space-x-3">
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input
@@ -534,6 +541,9 @@ export default function CreateMeeting() {
                       <div className="flex items-center space-x-2">
                         <Icon className="text-xl" />
                         <span className="text-sm font-medium text-stone-800">{role.name}</span>
+                        {role.pro && (
+                          <span className="ml-2 px-2 py-0.5 bg-yellow-400 text-white text-[10px] rounded-full font-semibold tracking-wider">PRO</span>
+                        )}
                       </div>
                       <p className="mt-1 text-xs text-stone-500">{role.description}</p>
                     </div>
@@ -605,6 +615,9 @@ export default function CreateMeeting() {
                     <span key={r.id} className="flex items-center gap-1 px-2 py-0.5 bg-stone-50 text-stone-700 text-xs rounded-full">
                       <Icon className="text-base" />
                       <span>{r.name}</span>
+                      {r.pro && (
+                        <span className="ml-1 px-2 py-0.5 bg-yellow-400 text-white text-[10px] rounded-full font-semibold tracking-wider">PRO</span>
+                      )}
                     </span>
                   );
                 })}
