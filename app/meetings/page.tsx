@@ -684,7 +684,7 @@ export default function MeetingsManager() {
                   <span>สร้างใหม่</span>
                 </motion.button>
               </Link>
-              <Link href="/calendar">
+              <Link href="/">
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
@@ -810,16 +810,28 @@ export default function MeetingsManager() {
                             <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-700 whitespace-nowrap flex-shrink-0">
                               กำลังประชุม
                             </span>
-                          ) : isUpcoming && (isOrganizer || isAttendee) ? (
-                            <span className="text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-700 whitespace-nowrap flex-shrink-0">
-                              รอเข้าร่วม
-                            </span>
                           ) : null}
                           {meeting.Cancelled === true && (
                             <span className="text-xs px-2 py-1 rounded-full bg-red-100 text-red-700 whitespace-nowrap flex-shrink-0 ml-2">
                               การประชุมถูกยกเลิก
                             </span>
                           )}
+                          {isPast &&
+                            isOrganizer &&
+                            !meeting.useFireflies &&
+                            !meeting.firefliesTranscriptId &&
+                            !meeting.transcript &&
+                            !meeting.meetingNotes && (
+                              <div className="flex justify-end items-center ml-auto mb-2">
+                                <button
+                                  className="px-2 py-1 bg-stone-800 hover:bg-stone-900 text-white rounded-2xl text-xs flex items-center space-x-2 cursor-pointer"
+                                  onClick={() => setUploadMeeting(meeting)}
+                                >
+                                  <UploadCloud className="w-4 h-4 mr-1" />
+                                  <span>อัปโหลดเสียง</span>
+                                </button>
+                              </div>
+                            )}
                         </div>
 
                         {!meeting.Cancelled && !isPast && (
@@ -925,28 +937,33 @@ export default function MeetingsManager() {
                         </div>
                       )}
 
-                      {isUpcoming && isOrganizer && !meeting.slideText && (
-                        <div className="mt-2 flex items-center gap-2">
-                          <button
-                            type="button"
-                            className="flex items-center gap-2 text-xs text-stone-700 bg-white border border-stone-200 rounded-xl px-3 py-1 hover:bg-stone-50 hover:border-stone-400 transition cursor-pointer font-medium"
-                            onClick={() => handleOpenSlideUploadModal(meeting)}
-                          >
-                            <UploadCloud className="w-4 h-4" />
-                            <span>อัปโหลดสไลด์ (pptx)</span>
-                            <span className="ml-2 px-2 py-0.5 bg-yellow-400 text-white text-[10px] rounded-full font-semibold tracking-wider align-middle">
-                              PRO
+                      {isUpcoming &&
+                        isOrganizer &&
+                        !meeting.slideText &&
+                        !meeting.Cancelled && (
+                          <div className="mt-2 flex items-center gap-2">
+                            <button
+                              type="button"
+                              className="flex items-center gap-2 text-xs text-stone-700 bg-white border border-stone-200 rounded-xl px-3 py-1 hover:bg-stone-50 hover:border-stone-400 transition cursor-pointer font-medium"
+                              onClick={() =>
+                                handleOpenSlideUploadModal(meeting)
+                              }
+                            >
+                              <UploadCloud className="w-4 h-4" />
+                              <span>อัปโหลดสไลด์ (pptx)</span>
+                              <span className="ml-2 px-2 py-0.5 bg-yellow-400 text-white text-[10px] rounded-full font-semibold tracking-wider align-middle">
+                                PRO
+                              </span>
+                            </button>
+                            <span className="relative group">
+                              <Info className="w-4 h-4 text-stone-400 group-hover:text-stone-700 cursor-pointer" />
+                              <span className="absolute left-1/2 -translate-x-1/2 top-full mt-2 z-50 hidden group-hover:block bg-white border border-stone-200 rounded-xl shadow-lg p-3 text-xs text-stone-800 w-64">
+                                อัปโหลดไฟล์สไลด์ (.pptx) เพื่อให้ AI
+                                เข้าใจเนื้อหาการประชุมและช่วยสรุปได้แม่นยำยิ่งขึ้น
+                              </span>
                             </span>
-                          </button>
-                          <span className="relative group">
-                            <Info className="w-4 h-4 text-stone-400 group-hover:text-stone-700 cursor-pointer" />
-                            <span className="absolute left-1/2 -translate-x-1/2 top-full mt-2 z-50 hidden group-hover:block bg-white border border-stone-200 rounded-xl shadow-lg p-3 text-xs text-stone-800 w-64">
-                              อัปโหลดไฟล์สไลด์ (.pptx) เพื่อให้ AI
-                              เข้าใจเนื้อหาการประชุมและช่วยสรุปได้แม่นยำยิ่งขึ้น
-                            </span>
-                          </span>
-                        </div>
-                      )}
+                          </div>
+                        )}
                     </div>
                   </React.Fragment>
                 );

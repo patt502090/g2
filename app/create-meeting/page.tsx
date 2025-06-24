@@ -1,6 +1,6 @@
 "use client"
 
-import type React from "react"
+import React from "react"
 
 import { useState } from "react"
 import { motion } from "framer-motion"
@@ -78,6 +78,7 @@ interface MeetingResponse {
   endTime?: string
   success?: boolean
   error?: string
+  meetingTitle?: string
 }
 
 export default function CreateMeeting() {
@@ -107,6 +108,7 @@ export default function CreateMeeting() {
     sendEmail: boolean;
     aiRoles: string[];
     useFireflies: boolean;
+    meetingLink?: string;
   }>({
     platform: "Google Meet",
     title: "",
@@ -116,10 +118,16 @@ export default function CreateMeeting() {
     attendees: [],
     organizer: "",
     sendEmail: true,
-    aiRoles: ["notetaker"],
-    useFireflies: true
+    aiRoles: ["notetaker", "action_tracker"],
+    useFireflies: true,
+    meetingLink: ""
   })
   const [meetingResponse, setMeetingResponse] = useState<MeetingResponse | null>(null)
+
+  // Debug: log formState ทุกครั้งที่เปลี่ยน
+  React.useEffect(() => {
+    console.log("formState changed:", formState);
+  }, [formState]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target
@@ -149,34 +157,43 @@ export default function CreateMeeting() {
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
+    console.log("[handleSubmit] form submit event");
+    console.log("[handleSubmit] formData:", formData);
 
     if (!formData.title) {
-      toast.error("กรุณาใส่หัวข้อการประชุม")
-      return
+      console.log("[handleSubmit] validation failed: title");
+      toast.error("กรุณาใส่หัวข้อการประชุม");
+      return;
     }
-
     if (!formData.startTime) {
-      toast.error("กรุณาเลือกวันเวลาเริ่มประชุม")
-      return
+      console.log("[handleSubmit] validation failed: startTime");
+      toast.error("กรุณาเลือกวันเวลาเริ่มประชุม");
+      return;
     }
-
     if (!formData.endTime) {
-      toast.error("กรุณาเลือกวันเวลาสิ้นสุด")
-      return
+      console.log("[handleSubmit] validation failed: endTime");
+      toast.error("กรุณาเลือกวันเวลาสิ้นสุด");
+      return;
     }
-
     if (new Date(formData.endTime) <= new Date(formData.startTime)) {
-      toast.error("เวลาสิ้นสุดต้องมากกว่าเวลาเริ่มต้น")
-      return
+      console.log("[handleSubmit] validation failed: endTime <= startTime");
+      toast.error("เวลาสิ้นสุดต้องมากกว่าเวลาเริ่มต้น");
+      return;
     }
-
     if (!formData.organizer) {
-      toast.error("กรุณาเลือกผู้จัดการประชุม")
-      return
+      console.log("[handleSubmit] validation failed: organizer");
+      toast.error("กรุณาเลือกผู้จัดการประชุม");
+      return;
+    }
+    if (formData.platform === "other" && !formData.meetingLink) {
+      console.log("[handleSubmit] validation failed: meetingLink");
+      toast.error("กรุณากรอกลิงก์ประชุม");
+      return;
     }
 
-    setFormState("submitting")
+    console.log("[handleSubmit] setFormState('submitting')");
+    setFormState("submitting");
 
     try {
       // Parse attendees email list
@@ -190,7 +207,7 @@ export default function CreateMeeting() {
       const randomId = Math.random().toString(36).substring(2, 12)
 
       const submitData = {
-        id: randomId,
+        ID: randomId,
         platform: formData.platform,
         title: formData.title,
         description: formData.description,
@@ -200,14 +217,17 @@ export default function CreateMeeting() {
         organizer: organizerEmail,
         sendEmail: formData.sendEmail,
         useFireflies: formData.useFireflies,
-        aiRoles: formData.aiRoles.map(roleId => ({
-          id: roleId,
-          name: AI_ROLES.find(r => r.id === roleId)?.name || '',
-          description: AI_ROLES.find(r => r.id === roleId)?.description || ''
-        }))
+        aiRoles: formData.aiRoles
+          .map(roleId => {
+            const role = AI_ROLES.find(r => r.id === roleId)
+            return role ? `${role.name} ${role.description}` : ''
+          })
+          .filter(Boolean)
+          .join(', '),
+        ...(formData.platform === "other" && formData.meetingLink ? { meetingLink: formData.meetingLink } : {})
       }
 
-      console.log("Sending data to API:", submitData)
+      console.log("[handleSubmit] Sending data to API");
 
       // ส่งข้อมูลไปยัง API Route แทนที่จะส่งไปยัง webhook โดยตรง
       const response = await fetch("/api/create-meeting", {
@@ -235,33 +255,12 @@ export default function CreateMeeting() {
       }
 
       setMeetingResponse(responseData)
+      console.log("[handleSubmit] setFormState('success')");
       setFormState("success")
       toast.success("สร้าง Meeting สำเร็จแล้ว")
     } catch (error) {
-      console.error("Meeting creation error:", error)
-
-      let errorMessage = "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง"
-
-      if (error instanceof Error) {
-        if (error.message.includes("500")) {
-          errorMessage = "เซิร์ฟเวอร์มีปัญหาภายใน - กรุณาติดต่อผู้ดูแลระบบหรือลองใหม่ในภายหลัง"
-        } else if (error.message.includes("404")) {
-          errorMessage = "ไม่พบ API endpoint - กรุณาติดต่อผู้ดูแลระบบ"
-        } else if (error.message.includes("403")) {
-          errorMessage = "ไม่มีสิทธิ์เข้าถึง - กรุณาตรวจสอบการตั้งค่า"
-        } else if (error.message.includes("400")) {
-          errorMessage = "ข้อมูลที่ส่งไม่ถูกต้อง - กรุณาตรวจสอบข้อมูลที่กรอก"
-        } else if (error.message.includes("Webhook error")) {
-          errorMessage = "ระบบ webhook มีปัญหา - กรุณาติดต่อผู้ดูแลระบบ"
-        } else if (error.message.includes("NetworkError") || error.message.includes("Failed to fetch")) {
-          errorMessage = "ไม่สามารถเชื่อมต่อได้ - กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต"
-        } else {
-          errorMessage = error.message
-        }
-      }
-
-      toast.error(errorMessage)
-      setFormState("form")
+      console.log("[handleSubmit] error:", error);
+      setFormState("form");
     }
   }
 
@@ -275,8 +274,9 @@ export default function CreateMeeting() {
       attendees: [],
       organizer: "",
       sendEmail: true,
-      aiRoles: ["notetaker"],
-      useFireflies: true
+      aiRoles: ["notetaker", "action_tracker"],
+      useFireflies: true,
+      meetingLink: ""
     })
     setMeetingResponse(null)
     setFormState("form")
@@ -291,6 +291,182 @@ export default function CreateMeeting() {
       hour: "2-digit",
       minute: "2-digit",
     })
+  }
+
+  // Render submitting state
+  if (formState === "submitting") {
+    return (
+      <div className="min-h-screen paper-bg flex items-center justify-center p-4">
+        <motion.div
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 0.4 }}
+          className="w-full max-w-md bg-white/90 rounded-3xl shadow-lg border border-stone-200 p-8 text-center"
+        >
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ delay: 0.2, duration: 0.3 }}
+            className="w-16 h-16 bg-stone-50 rounded-full flex items-center justify-center mx-auto mb-6"
+          >
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY, ease: "linear" }}
+              className="w-6 h-6 border-2 border-stone-300 border-t-stone-600 rounded-full"
+            />
+          </motion.div>
+
+          <motion.h2
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.3, duration: 0.3 }}
+            className="text-lg font-normal text-stone-800 mb-2"
+          >
+            กำลังสร้าง Meeting...
+          </motion.h2>
+
+          <motion.p
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.4, duration: 0.3 }}
+            className="text-sm text-stone-600"
+          >
+            กรุณารอสักครู่ ระบบกำลังสร้างการประชุมของคุณ
+          </motion.p>
+        </motion.div>
+      </div>
+    )
+  }
+
+  // Render success state
+  if (formState === "success") {
+    return (
+      <div className="min-h-screen paper-bg flex items-center justify-center p-4">
+        <motion.div
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 0.4 }}
+          className="w-full max-w-md bg-white/90 rounded-3xl shadow-lg border border-stone-200 p-8 text-center"
+        >
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ delay: 0.2, duration: 0.3, ease: "easeOut" }}
+            className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-6"
+          >
+            <Check className="w-6 h-6 text-green-600" />
+          </motion.div>
+
+          <motion.h2
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.3, duration: 0.3 }}
+            className="text-lg font-normal text-stone-800 mb-2"
+          >
+            สร้าง Meeting สำเร็จแล้ว
+          </motion.h2>
+
+          <motion.p
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.4, duration: 0.3 }}
+            className="text-sm text-stone-600 mb-6"
+          >
+            การประชุมของคุณถูกสร้างเรียบร้อยแล้ว
+          </motion.p>
+
+          {/* Meeting Details */}
+          <motion.div
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.5, duration: 0.3 }}
+            className="bg-stone-50 p-4 rounded-2xl border border-stone-100 mb-6 text-left"
+          >
+            <div className="space-y-3">
+              <div className="flex items-center space-x-2">
+                <Video className="w-4 h-4 text-stone-600" />
+                <div>
+                  <p className="text-xs text-stone-500">แพลตฟอร์ม</p>
+                  <p className="text-sm text-stone-800">{meetingResponse?.platform || formData.platform}</p>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Calendar className="w-4 h-4 text-stone-600" />
+                <div>
+                  <p className="text-xs text-stone-500">หัวข้อ</p>
+                  <p className="text-sm text-stone-800">{meetingResponse?.meetingTitle || meetingResponse?.title || formData.title}</p>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Clock className="w-4 h-4 text-stone-600" />
+                <div>
+                  <p className="text-xs text-stone-500">เวลา</p>
+                  <p className="text-sm text-stone-800">
+                    {formatDateTime(meetingResponse?.startTime || formData.startTime)}
+                  </p>
+                  <p className="text-sm text-stone-800">
+                    ถึง {formatDateTime(meetingResponse?.endTime || formData.endTime)}
+                  </p>
+                </div>
+              </div>
+
+              {meetingResponse?.meetingLink && (
+                <div className="pt-2">
+                  <a
+                    href={meetingResponse.meetingLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-base font-semibold text-white bg-green-600 hover:bg-green-700 py-2 px-6 rounded-2xl inline-block transition-colors shadow"
+                  >
+                    เข้าร่วมการประชุม
+                  </a>
+                </div>
+              )}
+            </div>
+          </motion.div>
+
+          <div className="flex space-x-3">
+            <Link href="/">
+              <motion.button
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.6, duration: 0.3 }}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="text-xs text-stone-500 hover:text-stone-700 transition-colors cursor-pointer"
+              >
+                ดูปฏิทิน
+              </motion.button>
+            </Link>
+            <Link href="/meetings">
+              <motion.button
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.65, duration: 0.3 }}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="text-xs text-stone-500 hover:text-stone-700 transition-colors cursor-pointer"
+              >
+                จัดการ Meeting
+              </motion.button>
+            </Link>
+            <motion.button
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.7, duration: 0.3 }}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={resetForm}
+              className="text-xs text-stone-500 hover:text-stone-700 transition-colors cursor-pointer"
+            >
+              สร้าง Meeting ใหม่
+            </motion.button>
+          </div>
+        </motion.div>
+      </div>
+    )
   }
 
   // Step 1: Meeting Info
@@ -321,9 +497,35 @@ export default function CreateMeeting() {
                   >
                     <option value="Google Meet">Google Meet</option>
                     <option value="Zoom">Zoom</option>
-                    <option value="MS Teams">MS Teams</option>
+                    <option value="MS Teams" disabled>MS Teams (เร็วๆ นี้)</option>
+                    <option value="other">
+                      Other
+                    </option>
                   </select>
                 </motion.div>
+
+                {formData.platform === "other" && (
+                  <motion.div
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ duration: 0.3 }}
+                    className="space-y-1"
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <label className="block text-xs text-stone-600 font-normal">ลิงก์ประชุม *</label>
+                      <span className="px-2 py-0.5 bg-yellow-400 text-white text-[10px] rounded-full font-semibold tracking-wider align-middle ml-1">PRO</span>
+                    </div>
+                    <input
+                      name="meetingLink"
+                      value={formData.meetingLink}
+                      onChange={handleInputChange}
+                      placeholder="https://your-meeting-link.com"
+                      required
+                      className="w-full px-3 py-1.5 text-xs border border-stone-200 rounded-2xl bg-white focus:outline-none focus:border-stone-400 focus:ring-2 focus:ring-stone-200 transition-all duration-200"
+                    />
+                    <p className="text-xs text-stone-400 mt-1">รองรับ GMeet, Zoom, MS Teams, Webex, Skype, Bluejeans, Dialpad, Lifesize, GoToMeeting</p>
+                  </motion.div>
+                )}
 
                 {/* Title */}
                 <motion.div
@@ -569,246 +771,80 @@ export default function CreateMeeting() {
     return (
       <div className="min-h-screen paper-bg flex items-center justify-center p-4">
         <motion.div className="w-full max-w-md bg-white/90 rounded-3xl shadow-lg border border-stone-200">
-          <div className="p-6 pb-3 border-b border-stone-100">
-            <h1 className="text-lg font-normal text-stone-800">Preview</h1>
-            <p className="text-xs text-stone-500 mt-1">Step 3: ตรวจสอบข้อมูลก่อนสร้าง Meeting</p>
-          </div>
-          <div className="p-6 space-y-4">
-            {/* หัวข้อและแพลตฟอร์ม */}
-            <div className="flex items-center gap-2">
-              <span className="text-lg font-semibold text-stone-800">{formData.title}</span>
-              <span className="px-2 py-0.5 rounded-full bg-stone-100 text-stone-700 text-xs">{formData.platform}</span>
+          <form onSubmit={handleSubmit}>
+            <div className="p-6 pb-3 border-b border-stone-100">
+              <h1 className="text-lg font-normal text-stone-800">Preview</h1>
+              <p className="text-xs text-stone-500 mt-1">Step 3: ตรวจสอบข้อมูลก่อนสร้าง Meeting</p>
             </div>
-            {/* เวลา */}
-            <div className="flex items-center gap-2 text-sm text-stone-600">
-              <Calendar className="w-4 h-4" />
-              <span>{formatDateTime(formData.startTime)} - {formatDateTime(formData.endTime)}</span>
-            </div>
-            {/* ผู้จัด */}
-            <div className="flex items-center gap-2 text-sm">
-              <span className="inline-block w-4 h-4 rounded-full bg-stone-200 text-stone-600 flex items-center justify-center mr-1" style={{fontSize: '13px'}}>👤</span>
-              <span className="font-medium">{ORGANIZER_CHOICES.find(c => c.id === formData.organizer)?.name}</span>
-            </div>
-            {/* ผู้เข้าร่วม */}
-            <div className="flex items-center gap-2 text-sm">
-              <span className="inline-block w-4 h-4 rounded-full bg-stone-200 text-stone-600 flex items-center justify-center mr-1" style={{fontSize: '13px'}}>👥</span>
-              <span>{formData.attendees.map(id => PARTICIPANT_CHOICES.find(c => c.id === id)?.name).filter(Boolean).join(', ')}</span>
-            </div>
-            {/* รายละเอียด */}
-            {formData.description && (
-              <div className="bg-stone-50 rounded-xl p-3 text-xs text-stone-600 border border-stone-100">
-                {formData.description}
+            <div className="p-6 space-y-4">
+              {/* หัวข้อและแพลตฟอร์ม */}
+              <div className="flex items-center gap-2">
+                <span className="text-lg font-semibold text-stone-800">{formData.title}</span>
+                <span className="px-2 py-0.5 rounded-full bg-stone-100 text-stone-700 text-xs">{formData.platform}</span>
               </div>
-            )}
-            {/* AI Assistant */}
-            <div>
-              <span className="block text-xs text-stone-500 mb-1">AI Assistant</span>
-              <div className="flex flex-wrap gap-2">
-                <span className="flex items-center gap-1 px-2 py-0.5 bg-stone-100 text-stone-700 text-xs rounded-full">
-                  <FileText className="w-4 h-4 mr-1 text-stone-700" />
-                  <span>AI Notetaker</span>
-                  <span className="ml-1 text-[10px] text-stone-400 leading-none">(บังคับ)</span>
-                </span>
-                {AI_ROLES.filter(r => r.id !== 'notetaker' && formData.aiRoles.includes(r.id)).map(r => {
-                  const Icon = r.icon;
-                  return (
-                    <span key={r.id} className="flex items-center gap-1 px-2 py-0.5 bg-stone-50 text-stone-700 text-xs rounded-full">
-                      <Icon className="text-base" />
-                      <span>{r.name}</span>
-                      {r.pro && (
-                        <span className="ml-1 px-2 py-0.5 bg-yellow-400 text-white text-[10px] rounded-full font-semibold tracking-wider">PRO</span>
-                      )}
-                    </span>
-                  );
-                })}
+              {/* เวลา */}
+              <div className="flex items-center gap-2 text-sm text-stone-600">
+                <Calendar className="w-4 h-4" />
+                <span>{formatDateTime(formData.startTime)} - {formatDateTime(formData.endTime)}</span>
+              </div>
+              {/* ผู้จัด */}
+              <div className="flex items-center gap-2 text-sm">
+                <span className="inline-block w-4 h-4 rounded-full bg-stone-200 text-stone-600 flex items-center justify-center mr-1" style={{fontSize: '13px'}}>👤</span>
+                <span className="font-medium">{ORGANIZER_CHOICES.find(c => c.id === formData.organizer)?.name}</span>
+              </div>
+              {/* ผู้เข้าร่วม */}
+              <div className="flex items-center gap-2 text-sm">
+                <span className="inline-block w-4 h-4 rounded-full bg-stone-200 text-stone-600 flex items-center justify-center mr-1" style={{fontSize: '13px'}}>👥</span>
+                <span>{formData.attendees.map(id => PARTICIPANT_CHOICES.find(c => c.id === id)?.name).filter(Boolean).join(', ')}</span>
+              </div>
+              {/* รายละเอียด */}
+              {formData.description && (
+                <div className="bg-stone-50 rounded-xl p-3 text-xs text-stone-600 border border-stone-100">
+                  {formData.description}
+                </div>
+              )}
+              {/* AI Assistant */}
+              <div>
+                <span className="block text-xs text-stone-500 mb-1">AI Assistant</span>
+                <div className="flex flex-wrap gap-2">
+                  <span className="flex items-center gap-1 px-2 py-0.5 bg-stone-100 text-stone-700 text-xs rounded-full">
+                    <FileText className="w-4 h-4 mr-1 text-stone-700" />
+                    <span>AI Notetaker</span>
+                    <span className="ml-1 text-[10px] text-stone-400 leading-none">(บังคับ)</span>
+                  </span>
+                  {AI_ROLES.filter(r => r.id !== 'notetaker' && formData.aiRoles.includes(r.id)).map(r => {
+                    const Icon = r.icon;
+                    return (
+                      <span key={r.id} className="flex items-center gap-1 px-2 py-0.5 bg-stone-50 text-stone-700 text-xs rounded-full">
+                        <Icon className="text-base" />
+                        <span>{r.name}</span>
+                        {r.pro && (
+                          <span className="ml-1 px-2 py-0.5 bg-yellow-400 text-white text-[10px] rounded-full font-semibold tracking-wider">PRO</span>
+                        )}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+              {/* ส่งอีเมล */}
+              <div className="flex items-center gap-2 text-xs text-stone-500">
+                <span className="inline-block w-4 h-4 rounded-full bg-stone-200 text-stone-600 flex items-center justify-center mr-1" style={{fontSize: '13px'}}>✉️</span>
+                <span>ส่งอีเมลแจ้งเตือน: <b>{formData.sendEmail ? 'ใช่' : 'ไม่'}</b></span>
+              </div>
+              <div className="flex justify-between mt-4">
+                <button type="button" onClick={() => setStep(2)} className="text-xs text-stone-500 hover:text-stone-700">ย้อนกลับ</button>
+                <button
+                  type="submit"
+                  className="bg-stone-800 hover:bg-stone-900 text-white rounded-2xl px-4 py-1 text-xs"
+                  disabled={(formState as string) === 'submitting'}
+                >
+                  สร้าง Meeting
+                </button>
               </div>
             </div>
-            {/* ส่งอีเมล */}
-            <div className="flex items-center gap-2 text-xs text-stone-500">
-              <span className="inline-block w-4 h-4 rounded-full bg-stone-200 text-stone-600 flex items-center justify-center mr-1" style={{fontSize: '13px'}}>✉️</span>
-              <span>ส่งอีเมลแจ้งเตือน: <b>{formData.sendEmail ? 'ใช่' : 'ไม่'}</b></span>
-            </div>
-            <div className="flex justify-between mt-4">
-              <button type="button" onClick={() => setStep(2)} className="text-xs text-stone-500 hover:text-stone-700">ย้อนกลับ</button>
-              <button type="button" onClick={handleSubmit} className="bg-stone-800 hover:bg-stone-900 text-white rounded-2xl px-4 py-1 text-xs">สร้าง Meeting</button>
-            </div>
-          </div>
+          </form>
         </motion.div>
       </div>
     );
   }
-
-  // Render submitting state
-  if (formState === "submitting") {
-    return (
-      <div className="min-h-screen paper-bg flex items-center justify-center p-4">
-        <motion.div
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ duration: 0.4 }}
-          className="w-full max-w-md bg-white/90 rounded-3xl shadow-lg border border-stone-200 p-8 text-center"
-        >
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ delay: 0.2, duration: 0.3 }}
-            className="w-16 h-16 bg-stone-50 rounded-full flex items-center justify-center mx-auto mb-6"
-          >
-            <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY, ease: "linear" }}
-              className="w-6 h-6 border-2 border-stone-300 border-t-stone-600 rounded-full"
-            />
-          </motion.div>
-
-          <motion.h2
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.3, duration: 0.3 }}
-            className="text-lg font-normal text-stone-800 mb-2"
-          >
-            กำลังสร้าง Meeting...
-          </motion.h2>
-
-          <motion.p
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.4, duration: 0.3 }}
-            className="text-sm text-stone-600"
-          >
-            กรุณารอสักครู่ ระบบกำลังสร้างการประชุมของคุณ
-          </motion.p>
-        </motion.div>
-      </div>
-    )
-  }
-
-  // Render success state
-  return (
-    <div className="min-h-screen paper-bg flex items-center justify-center p-4">
-      <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ duration: 0.4 }}
-        className="w-full max-w-md bg-white/90 rounded-3xl shadow-lg border border-stone-200 p-8 text-center"
-      >
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          transition={{ delay: 0.2, duration: 0.3, ease: "easeOut" }}
-          className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-6"
-        >
-          <Check className="w-6 h-6 text-green-600" />
-        </motion.div>
-
-        <motion.h2
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.3, duration: 0.3 }}
-          className="text-lg font-normal text-stone-800 mb-2"
-        >
-          สร้าง Meeting สำเร็จแล้ว
-        </motion.h2>
-
-        <motion.p
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.4, duration: 0.3 }}
-          className="text-sm text-stone-600 mb-6"
-        >
-          การประชุมของคุณถูกสร้างเรียบร้อยแล้ว
-        </motion.p>
-
-        {/* Meeting Details */}
-        <motion.div
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.5, duration: 0.3 }}
-          className="bg-stone-50 p-4 rounded-2xl border border-stone-100 mb-6 text-left"
-        >
-          <div className="space-y-3">
-            <div className="flex items-center space-x-2">
-              <Video className="w-4 h-4 text-stone-600" />
-              <div>
-                <p className="text-xs text-stone-500">แพลตฟอร์ม</p>
-                <p className="text-sm text-stone-800">{meetingResponse?.platform || formData.platform}</p>
-              </div>
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <Calendar className="w-4 h-4 text-stone-600" />
-              <div>
-                <p className="text-xs text-stone-500">หัวข้อ</p>
-                <p className="text-sm text-stone-800">{meetingResponse?.title || formData.title}</p>
-              </div>
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <Clock className="w-4 h-4 text-stone-600" />
-              <div>
-                <p className="text-xs text-stone-500">เวลา</p>
-                <p className="text-sm text-stone-800">
-                  {formatDateTime(meetingResponse?.startTime || formData.startTime)}
-                </p>
-                <p className="text-sm text-stone-800">
-                  ถึง {formatDateTime(meetingResponse?.endTime || formData.endTime)}
-                </p>
-              </div>
-            </div>
-
-            {meetingResponse?.meetingLink && (
-              <div className="pt-2">
-                <a
-                  href={meetingResponse.meetingLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm text-stone-800 bg-stone-100 hover:bg-stone-200 py-2 px-4 rounded-2xl inline-block transition-colors"
-                >
-                  เข้าร่วมการประชุม
-                </a>
-              </div>
-            )}
-          </div>
-        </motion.div>
-
-        <div className="flex space-x-3">
-          <Link href="/calendar">
-            <motion.button
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.6, duration: 0.3 }}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="text-xs text-stone-500 hover:text-stone-700 transition-colors cursor-pointer"
-            >
-              ดูปฏิทิน
-            </motion.button>
-          </Link>
-          <Link href="/meetings">
-            <motion.button
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.65, duration: 0.3 }}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="text-xs text-stone-500 hover:text-stone-700 transition-colors cursor-pointer"
-            >
-              จัดการ Meeting
-            </motion.button>
-          </Link>
-          <motion.button
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.7, duration: 0.3 }}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={resetForm}
-            className="text-xs text-stone-500 hover:text-stone-700 transition-colors cursor-pointer"
-          >
-            สร้าง Meeting ใหม่
-          </motion.button>
-        </div>
-      </motion.div>
-    </div>
-  )
 }

@@ -50,7 +50,6 @@ export default function SlideUploadModal({ meeting, onClose, onSuccess }: { meet
       });
       if (!res.ok) throw new Error("Upload failed");
       setUploadStatus("success");
-      toast.success("อัปโหลดสไลด์สำเร็จ!");
       if (onSuccess) onSuccess();
     } catch (error) {
       setUploadStatus("error");

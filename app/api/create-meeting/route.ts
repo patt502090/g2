@@ -7,7 +7,7 @@ export async function POST(request: NextRequest) {
     console.log("Received meeting data:", body)
 
     // ส่งข้อมูลไปยัง webhook ผ่าน server-side
-    const response = await fetch("https://g2.pupa-ai.com/webhook/9cf764fa-8824-4a5e-827b-2b94e9667d5c", {
+    const response = await fetch("https://g2.pupa-ai.com/webhook/68a90b41-ac6d-4e95-a34b-b8cdfe483112dd", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
