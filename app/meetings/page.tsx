@@ -1057,7 +1057,7 @@ export default function MeetingsManager() {
                 onClick={() => setViewTab("transcript")}
               >
                 <FileText className="inline-block w-4 h-4 mr-1" />
-                Transcript
+                Transcript <span className="ml-2 px-2 py-0.5 bg-yellow-400 text-white text-[10px] rounded-full font-semibold tracking-wider align-middle">PREMIUM</span>
               </button>
               <button
                 className={`flex-1 px-4 py-2 rounded-xl text-xs font-medium transition-all duration-150 ${
@@ -1082,7 +1082,6 @@ export default function MeetingsManager() {
                   <div className="flex flex-col items-center justify-center text-stone-400 py-8">
                     <span className="text-3xl mb-2">🗒️</span>
                     <span className="text-sm">ไม่มี Transcript
-                      <span className="ml-2 px-2 py-0.5 bg-yellow-400 text-white text-[10px] rounded-full font-semibold tracking-wider align-middle">PREMIUM</span>
                     </span>
                   </div>
                 )
