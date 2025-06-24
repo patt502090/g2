@@ -12,7 +12,7 @@ function getUserEmail() {
   return '';
 }
 
-export default function UploadModal({ meeting, onClose }: { meeting: any, onClose: () => void }) {
+export default function UploadModal({ meeting, onClose, onSuccess }: { meeting: any, onClose: () => void, onSuccess?: () => void }) {
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<"idle" | "success" | "error">("idle");
@@ -43,6 +43,7 @@ export default function UploadModal({ meeting, onClose }: { meeting: any, onClos
     setUploadStatus("idle");
     const formData = new FormData();
     formData.append("file", file);
+    formData.append("meetingId", meeting.id);
 
     try {
       const res = await fetch("/api/upload-audio", {
@@ -51,6 +52,8 @@ export default function UploadModal({ meeting, onClose }: { meeting: any, onClos
       });
       if (!res.ok) throw new Error("Upload failed");
       setUploadStatus("success");
+      toast.success("อัปโหลดสำเร็จ!");
+      if (onSuccess) onSuccess();
     } catch (error) {
       setUploadStatus("error");
     } finally {

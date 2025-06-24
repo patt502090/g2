@@ -17,6 +17,9 @@ import {
   Link as LinkIcon,
   UploadCloud,
   Ban,
+  X,
+  FileText,
+  FileCheck,
 } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
 import Link from "next/link";
@@ -384,6 +387,8 @@ export default function MeetingsManager() {
     open: boolean;
     meetingId?: string;
   }>({ open: false });
+  const [viewMeeting, setViewMeeting] = useState<Meeting | null>(null);
+  const [viewTab, setViewTab] = useState<'transcript' | 'notes'>('transcript');
 
   const formatDateTime = (dateTimeString: string) => {
     const date = new Date(dateTimeString);
@@ -1067,15 +1072,20 @@ export default function MeetingsManager() {
                         </div>
                       )}
 
-                    {isPast && meeting.firefliesTranscriptId && (
+                    {isPast && meeting.meetingNotes && (
                       <div className="flex items-center space-x-2 mt-2">
                         <div className="w-2 h-2 bg-stone-600 rounded-full"></div>
-                        <Link
-                          href={`/meetings/${meeting.id}/transcript`}
+                        <a
+                          href="#"
                           className="text-xs text-stone-600 hover:text-stone-800 hover:underline"
+                          onClick={e => {
+                            e.preventDefault();
+                            setViewMeeting(meeting);
+                            setViewTab('transcript');
+                          }}
                         >
                           ดูบันทึกการประชุม
-                        </Link>
+                        </a>
                       </div>
                     )}
                   </div>
@@ -1119,6 +1129,89 @@ export default function MeetingsManager() {
 
       {uploadMeeting && (
         <UploadModal meeting={uploadMeeting} onClose={() => setUploadMeeting(null)} />
+      )}
+
+      {/* Modal for viewing transcript/notes */}
+      {viewMeeting && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-gradient-to-br from-white via-stone-50 to-stone-100 rounded-3xl shadow-2xl p-0 max-w-lg w-full relative border border-stone-200">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 pt-6 pb-2 border-b border-stone-100 rounded-t-3xl">
+              <div className="flex items-center gap-2">
+                <Info className="w-6 h-6 text-stone-700" />
+                <div>
+                  <div className="font-semibold text-base text-stone-800">{viewMeeting.title}</div>
+                  <div className="text-xs text-stone-500">
+                    {viewMeeting.platform} | {viewMeeting.startTime && new Date(viewMeeting.startTime).toLocaleString("th-TH")}
+                  </div>
+                </div>
+              </div>
+              <button
+                className="p-2 rounded-full hover:bg-stone-200 transition"
+                onClick={() => setViewMeeting(null)}
+              >
+                <X className="w-5 h-5 text-stone-500" />
+              </button>
+            </div>
+            {/* Tabs */}
+            <div className="flex space-x-2 px-6 pt-4">
+              <button
+                className={`flex-1 px-4 py-2 rounded-xl text-xs font-medium transition-all duration-150 ${
+                  viewTab === 'transcript'
+                    ? 'bg-stone-800 text-white shadow'
+                    : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
+                }`}
+                onClick={() => setViewTab('transcript')}
+              >
+                <FileText className="inline-block w-4 h-4 mr-1" />
+                Transcript
+              </button>
+              <button
+                className={`flex-1 px-4 py-2 rounded-xl text-xs font-medium transition-all duration-150 ${
+                  viewTab === 'notes'
+                    ? 'bg-stone-800 text-white shadow'
+                    : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
+                }`}
+                onClick={() => setViewTab('notes')}
+              >
+                <FileCheck className="inline-block w-4 h-4 mr-1" />
+                สรุปประชุม
+              </button>
+            </div>
+            {/* Content */}
+            <div className="px-6 pb-6 pt-4 max-h-80 overflow-y-auto custom-scrollbar">
+              {viewTab === 'transcript' ? (
+                viewMeeting.transcript ? (
+                  <div className="whitespace-pre-wrap text-sm text-stone-800">{viewMeeting.transcript}</div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center text-stone-400 py-8">
+                    <span className="text-3xl mb-2">🗒️</span>
+                    <span className="text-sm">ไม่มี Transcript</span>
+                  </div>
+                )
+              ) : viewMeeting.meetingNotes ? (
+                <div className="whitespace-pre-wrap text-sm text-stone-800">{viewMeeting.meetingNotes}</div>
+              ) : (
+                <div className="flex flex-col items-center justify-center text-stone-400 py-8">
+                  <span className="text-3xl mb-2">📄</span>
+                  <span className="text-sm">ไม่มีสรุปประชุม</span>
+                </div>
+              )}
+            </div>
+          </div>
+          {/* Custom scrollbar style */}
+          <style jsx global>{`
+            .custom-scrollbar::-webkit-scrollbar {
+              width: 8px;
+              background: #f3f4f6;
+              border-radius: 8px;
+            }
+            .custom-scrollbar::-webkit-scrollbar-thumb {
+              background: #d1d5db;
+              border-radius: 8px;
+            }
+          `}</style>
+        </div>
       )}
     </div>
   );

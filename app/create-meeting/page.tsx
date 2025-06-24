@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useState } from "react"
 import { motion } from "framer-motion"
-import { ArrowLeft, Calendar, Clock, Video, Check, AlertCircle, Info } from "lucide-react"
+import { ArrowLeft, Calendar, Clock, Video, Check, AlertCircle, Info, FileText, ListChecks, ShieldAlert, Timer, Smile, CheckCircle, HelpCircle } from "lucide-react"
 import toast, { Toaster } from "react-hot-toast"
 import Link from "next/link"
 
@@ -14,7 +14,7 @@ interface AIRole {
   id: string;
   name: string;
   description: string;
-  icon: string;
+  icon: React.ComponentType<{ className?: string }>;
 }
 
 const AI_ROLES: AIRole[] = [
@@ -22,43 +22,43 @@ const AI_ROLES: AIRole[] = [
     id: "notetaker",
     name: "AI Notetaker",
     description: "จดบันทึกและสรุปประเด็นสำคัญจากการประชุม",
-    icon: "📝"
+    icon: FileText
   },
   {
     id: "action_tracker",
     name: "AI Action Tracker",
     description: "จับประเด็น Action Items และติดตามงานที่ได้รับมอบหมาย",
-    icon: "📌"
+    icon: ListChecks
   },
   {
     id: "risk_detector",
     name: "AI Risk Detector",
     description: "ตรวจจับความเสี่ยง การตัดสินใจที่อาจมีปัญหา และความขัดแย้ง",
-    icon: "🔍"
+    icon: ShieldAlert
   },
   {
     id: "time_keeper",
     name: "AI Time Keeper",
     description: "บริหารจัดการเวลา และแจ้งเตือนตามวาระการประชุม",
-    icon: "⏱️"
+    icon: Timer
   },
   {
     id: "sentiment_analyzer",
     name: "AI Sentiment Analyzer",
     description: "วิเคราะห์อารมณ์และท่าทีของผู้เข้าร่วมประชุม",
-    icon: "🎭"
+    icon: Smile
   },
   {
     id: "decision_logger",
     name: "AI Decision Logger",
     description: "บันทึกการตัดสินใจสำคัญและเหตุผลประกอบ",
-    icon: "✅"
+    icon: CheckCircle
   },
   {
     id: "question_tracker",
     name: "AI Question Tracker",
     description: "จับประเด็นคำถามที่ยังไม่ได้รับคำตอบ",
-    icon: "❓"
+    icon: HelpCircle
   }
 ];
 
@@ -513,33 +513,36 @@ export default function CreateMeeting() {
           <div className="p-6 space-y-4">
             {/* Always-on Notetaker badge */}
             <span className="flex items-center gap-1 px-2 py-0.5 bg-stone-100 text-stone-700 text-xs rounded-full">
-              <span className="text-base mr-1" role="img" aria-label="notetaker">📝</span>
+              <FileText className="w-4 h-4 mr-1 text-stone-700" />
               <span>AI Notetaker</span>
               <span className="ml-1 text-[10px] text-stone-400 leading-none">(บังคับ)</span>
             </span>
             {/* เลือก AI อื่น ๆ */}
             <div className="grid grid-cols-2 gap-3">
-              {AI_ROLES.filter(r => r.id !== 'notetaker').map((role) => (
-                <label key={role.id} className={`relative flex items-start p-3 rounded-xl border cursor-pointer transition-all ${formData.aiRoles.includes(role.id) ? 'border-stone-400 bg-stone-50' : 'border-stone-200 hover:border-stone-300'}`}> 
-                  <input
-                    type="checkbox"
-                    name={`aiRole_${role.id}`}
-                    checked={formData.aiRoles.includes(role.id)}
-                    onChange={handleInputChange}
-                    className="sr-only"
-                  />
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2">
-                      <span className="text-xl">{role.icon}</span>
-                      <span className="text-sm font-medium text-stone-800">{role.name}</span>
+              {AI_ROLES.filter(r => r.id !== 'notetaker').map((role) => {
+                const Icon = role.icon;
+                return (
+                  <label key={role.id} className={`relative flex items-start p-3 rounded-xl border cursor-pointer transition-all ${formData.aiRoles.includes(role.id) ? 'border-stone-400 bg-stone-50' : 'border-stone-200 hover:border-stone-300'}`}> 
+                    <input
+                      type="checkbox"
+                      name={`aiRole_${role.id}`}
+                      checked={formData.aiRoles.includes(role.id)}
+                      onChange={handleInputChange}
+                      className="sr-only"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2">
+                        <Icon className="text-xl" />
+                        <span className="text-sm font-medium text-stone-800">{role.name}</span>
+                      </div>
+                      <p className="mt-1 text-xs text-stone-500">{role.description}</p>
                     </div>
-                    <p className="mt-1 text-xs text-stone-500">{role.description}</p>
-                  </div>
-                  <div className={`absolute top-3 right-3 w-4 h-4 rounded-full border flex items-center justify-center ${formData.aiRoles.includes(role.id) ? 'border-stone-500 bg-stone-500' : 'border-stone-300'}`}>
-                    {formData.aiRoles.includes(role.id) && (<Check className="w-3 h-3 text-white" />)}
-                  </div>
-                </label>
-              ))}
+                    <div className={`absolute top-3 right-3 w-4 h-4 rounded-full border flex items-center justify-center ${formData.aiRoles.includes(role.id) ? 'border-stone-500 bg-stone-500' : 'border-stone-300'}`}>
+                      {formData.aiRoles.includes(role.id) && (<Check className="w-3 h-3 text-white" />)}
+                    </div>
+                  </label>
+                );
+              })}
             </div>
             <div className="flex justify-between mt-4">
               <button type="button" onClick={() => setStep(1)} className="text-xs text-stone-500 hover:text-stone-700">ย้อนกลับ</button>
@@ -592,16 +595,19 @@ export default function CreateMeeting() {
               <span className="block text-xs text-stone-500 mb-1">AI Assistant</span>
               <div className="flex flex-wrap gap-2">
                 <span className="flex items-center gap-1 px-2 py-0.5 bg-stone-100 text-stone-700 text-xs rounded-full">
-                  <span className="text-base mr-1" role="img" aria-label="notetaker">📝</span>
+                  <FileText className="w-4 h-4 mr-1 text-stone-700" />
                   <span>AI Notetaker</span>
                   <span className="ml-1 text-[10px] text-stone-400 leading-none">(บังคับ)</span>
                 </span>
-                {AI_ROLES.filter(r => r.id !== 'notetaker' && formData.aiRoles.includes(r.id)).map(r => (
-                  <span key={r.id} className="flex items-center gap-1 px-2 py-0.5 bg-stone-50 text-stone-700 text-xs rounded-full">
-                    <span className="text-base">{r.icon}</span>
-                    <span>{r.name}</span>
-                  </span>
-                ))}
+                {AI_ROLES.filter(r => r.id !== 'notetaker' && formData.aiRoles.includes(r.id)).map(r => {
+                  const Icon = r.icon;
+                  return (
+                    <span key={r.id} className="flex items-center gap-1 px-2 py-0.5 bg-stone-50 text-stone-700 text-xs rounded-full">
+                      <Icon className="text-base" />
+                      <span>{r.name}</span>
+                    </span>
+                  );
+                })}
               </div>
             </div>
             {/* ส่งอีเมล */}
