@@ -26,6 +26,7 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { createPortal } from "react-dom";
 import UploadModal from "../components/UploadModal";
+import SlideUploadModal from "../components/SlideUploadModal";
 
 interface Meeting {
   id: string;
@@ -45,6 +46,8 @@ interface Meeting {
   transcript?: string;
   meetingNotes?: string;
   Cancelled?: boolean;
+  slideText?: string;
+  slideFileName?: string;
 }
 
 type ViewState = "list" | "edit";
@@ -83,6 +86,8 @@ async function fetchMeetings(): Promise<Meeting[]> {
     transcript: rec.fields.Transcript || "",
     meetingNotes: rec.fields["Meeting Notes"] || "",
     Cancelled: rec.fields["Cancelled"] || false,
+    slideText: rec.fields["Slide Text"] || "",
+    slideFileName: rec.fields["Slide File Name"] || "",
   }));
 }
 
@@ -181,196 +186,6 @@ function AttendeesTooltip({
   );
 }
 
-function MeetingCard({
-  meeting,
-  onEdit,
-  onDelete,
-  onUploadAudio,
-}: {
-  meeting: Meeting;
-  onEdit: () => void;
-  onDelete: () => void;
-  onUploadAudio: (meeting: Meeting) => void;
-}) {
-  const userEmail = getUserEmail();
-  const isOrganizer =
-    userEmail.toLowerCase() === meeting.organizer?.toLowerCase();
-  const isAttendee = meeting.attendees.some(
-    (a) => a.toLowerCase() === userEmail.toLowerCase()
-  );
-  const now = new Date();
-  const isPast = new Date(meeting.endTime) < now;
-  const startTime = new Date(meeting.startTime);
-  const isUpcoming = !isPast && startTime > now;
-  const isOngoing = !isPast && startTime <= now;
-
-  const handleDelete = () => {
-    onDelete();
-  };
-
-  const formatDateTime = (dateTimeString: string) => {
-    const date = new Date(dateTimeString);
-    return date.toLocaleString("th-TH", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
-  const formatTime = (timeString: string) => {
-    const date = new Date(timeString);
-    return date.toLocaleTimeString("th-TH", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
-  const handleCopyLink = () => {
-    const url = meeting.url || `/meetings/${meeting.id}`;
-    if (typeof window !== "undefined") {
-      navigator.clipboard.writeText(window.location.origin + url);
-      toast.success("คัดลอกลิงก์แล้ว!");
-    }
-  };
-
-  function setCancelModal(arg0: { open: boolean; meetingId: string }): void {
-    throw new Error("Function not implemented.");
-  }
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-      className={`p-4 rounded-2xl border transition-all duration-200 mb-2 hover:shadow-md ${
-        meeting.Cancelled === true
-          ? "bg-red-50/50 border-red-300"
-          : isPast
-          ? "bg-stone-50/50 border-stone-200/50"
-          : isOngoing
-          ? "bg-green-50/30 border-green-200/50"
-          : isUpcoming && (isOrganizer || isAttendee)
-          ? "bg-yellow-50/30 border-yellow-200/50"
-          : "bg-white border-stone-200"
-      }`}
-    >
-      <div className="flex items-center w-full gap-1 flex-nowrap">
-        <div className="flex items-center gap-1 min-w-0 flex-1 overflow-hidden">
-          <h3
-            className="truncate min-w-0 max-w-[100px] text-base font-medium text-stone-800"
-            title={meeting.title}
-          >
-            {meeting.title}
-          </h3>
-          <span className="text-xs px-2 py-1 rounded-full bg-stone-100 text-stone-700 whitespace-nowrap flex-shrink-0">
-            {meeting.platform}
-          </span>
-          {isOrganizer && (
-            <span className="text-xs px-2 py-1 rounded-full bg-stone-200 text-stone-800 whitespace-nowrap flex-shrink-0">
-              ผู้จัดประชุม
-            </span>
-          )}
-          {isAttendee && !isOrganizer && (
-            <span className="text-xs px-2 py-1 rounded-full bg-stone-100 text-stone-700 whitespace-nowrap flex-shrink-0">
-              ผู้เข้าร่วม
-            </span>
-          )}
-          {isPast ? (
-            <span className="text-xs px-2 py-1 rounded-full bg-stone-100 text-stone-500 whitespace-nowrap flex-shrink-0">
-              ประชุมเสร็จสิ้น
-            </span>
-          ) : isOngoing ? (
-            <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-700 whitespace-nowrap flex-shrink-0">
-              กำลังประชุม
-            </span>
-          ) : isUpcoming && (isOrganizer || isAttendee) ? (
-            <span className="text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-700 whitespace-nowrap flex-shrink-0">
-              รอเข้าร่วม
-            </span>
-          ) : null}
-          {meeting.Cancelled === true && (
-            <span className="text-xs px-2 py-1 rounded-full bg-red-100 text-red-700 whitespace-nowrap flex-shrink-0 ml-2">
-              การประชุมถูกยกเลิก
-            </span>
-          )}
-        </div>
-        {!meeting.Cancelled && !isPast && (
-          <div className="flex items-center gap-1 flex-shrink-0">
-            <a
-              href={meeting.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`px-2 py-1 text-white rounded-2xl text-xs transition-all duration-200 font-medium flex items-center whitespace-nowrap cursor-pointer ${
-                isOngoing
-                  ? "bg-green-600 hover:bg-green-700"
-                  : "bg-stone-800 hover:bg-stone-900"
-              }`}
-              style={{ textDecoration: "none" }}
-            >
-              {isOngoing ? "เข้าร่วมเลย" : "เข้าร่วมการประชุม"}
-            </a>
-            <button
-              type="button"
-              className="p-1.5 rounded-full hover:bg-stone-100 transition-colors cursor-pointer"
-              onClick={() => {
-                navigator.clipboard.writeText(
-                  window.location.origin + meeting.url
-                );
-                toast.success("คัดลอกลิงก์แล้ว!");
-              }}
-              title="คัดลอกลิงก์เข้าร่วม"
-            >
-              <Clipboard className="w-3.5 h-3.5 text-stone-600" />
-            </button>
-            <div className="relative group">
-              <button
-                onClick={() =>
-                  setCancelModal({
-                    open: true,
-                    meetingId: meeting.id,
-                  })
-                }
-                className="p-1.5 text-red-600 hover:bg-red-100 rounded-full transition-colors cursor-pointer"
-                type="button"
-                title="ยกเลิกการประชุม"
-              >
-                <Ban className="w-4 h-4" />
-              </button>
-              <span className="absolute left-1/2 -translate-x-1/2 top-full mt-1 px-2 py-1 rounded bg-stone-800 text-white text-xs opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-20 whitespace-nowrap">
-                ยกเลิกการประชุม
-              </span>
-            </div>
-          </div>
-        )}
-      </div>
-      <div className="space-y-2">
-        <div className="flex items-center text-xs text-stone-600">
-          <Calendar className="w-3.5 h-3.5 mr-1" />
-          <span>{formatDateTime(meeting.startTime)}</span>
-          <span className="mx-1">-</span>
-          <span>{formatTime(meeting.endTime)}</span>
-        </div>
-        <AttendeesTooltip
-          organizer={meeting.organizer}
-          attendees={meeting.attendees}
-        >
-          <div className="flex items-center text-xs text-stone-600 cursor-help">
-            <Info className="w-3.5 h-3.5 mr-1" />
-            <span>{meeting.attendees?.length || 0} คนเข้าร่วม</span>
-          </div>
-        </AttendeesTooltip>
-        {meeting.description && (
-          <p className="text-xs text-stone-500 line-clamp-2">
-            {meeting.description}
-          </p>
-        )}
-      </div>
-    </motion.div>
-  );
-}
-
 export default function MeetingsManager() {
   const {
     data: meetings = [],
@@ -393,7 +208,10 @@ export default function MeetingsManager() {
     meetingId?: string;
   }>({ open: false });
   const [viewMeeting, setViewMeeting] = useState<Meeting | null>(null);
-  const [viewTab, setViewTab] = useState<'transcript' | 'notes'>('transcript');
+  const [viewTab, setViewTab] = useState<"transcript" | "notes">("transcript");
+  const [slideUploadMeeting, setSlideUploadMeeting] = useState<Meeting | null>(
+    null
+  );
 
   const formatDateTime = (dateTimeString: string) => {
     const date = new Date(dateTimeString);
@@ -500,6 +318,15 @@ export default function MeetingsManager() {
   const toggleFireflies = (meetingId: string) => {
     // In real app, this would be an API call to toggle fireflies
     console.log(`Toggle fireflies for meeting ${meetingId}`);
+  };
+
+  const handleOpenSlideUploadModal = (meeting: Meeting) =>
+    setSlideUploadMeeting(meeting);
+  const handleCloseSlideUploadModal = () => setSlideUploadMeeting(null);
+  const handleSlideUploadSuccess = () => {
+    refetch();
+    setSlideUploadMeeting(null);
+    toast.success("อัปโหลดสไลด์สำเร็จ!");
   };
 
   // Render edit form
@@ -725,7 +552,7 @@ export default function MeetingsManager() {
   const filteredTotalPages = Math.ceil(filteredMeetings.length / PAGE_SIZE);
 
   const allMeetings = filteredMeetings; // or sortedMeetings if that's your main list
-  const firstPastIdx = allMeetings.findIndex(m => new Date(m.endTime) < now);
+  const firstPastIdx = allMeetings.findIndex((m) => new Date(m.endTime) < now);
   const firstPastId = firstPastIdx !== -1 ? allMeetings[firstPastIdx].id : null;
 
   return (
@@ -935,7 +762,9 @@ export default function MeetingsManager() {
                     {isFirstPastInAll && (
                       <div className="flex items-center my-4">
                         <div className="flex-grow border-t border-dashed border-stone-300"></div>
-                        <span className="mx-3 text-xs text-stone-400">ประชุมที่ผ่านมา</span>
+                        <span className="mx-3 text-xs text-stone-400">
+                          ประชุมที่ผ่านมา
+                        </span>
                         <div className="flex-grow border-t border-dashed border-stone-300"></div>
                       </div>
                     )}
@@ -1042,7 +871,7 @@ export default function MeetingsManager() {
                           </div>
                         )}
                       </div>
-                     
+
                       <div className="space-y-2">
                         <div className="flex items-center text-xs text-stone-600">
                           <Calendar className="w-3.5 h-3.5 mr-1" />
@@ -1085,14 +914,37 @@ export default function MeetingsManager() {
                           <a
                             href="#"
                             className="text-xs text-stone-600 hover:text-stone-800 hover:underline"
-                            onClick={e => {
+                            onClick={(e) => {
                               e.preventDefault();
                               setViewMeeting(meeting);
-                              setViewTab('transcript');
+                              setViewTab("transcript");
                             }}
                           >
                             ดูบันทึกการประชุม
                           </a>
+                        </div>
+                      )}
+
+                      {isUpcoming && isOrganizer && !meeting.slideText && (
+                        <div className="mt-2 flex items-center gap-2">
+                          <button
+                            type="button"
+                            className="flex items-center gap-2 text-xs text-stone-700 bg-white border border-stone-200 rounded-xl px-3 py-1 hover:bg-stone-50 hover:border-stone-400 transition cursor-pointer font-medium"
+                            onClick={() => handleOpenSlideUploadModal(meeting)}
+                          >
+                            <UploadCloud className="w-4 h-4" />
+                            <span>อัปโหลดสไลด์ (pptx)</span>
+                            <span className="ml-2 px-2 py-0.5 bg-yellow-400 text-white text-[10px] rounded-full font-semibold tracking-wider align-middle">
+                              PRO
+                            </span>
+                          </button>
+                          <span className="relative group">
+                            <Info className="w-4 h-4 text-stone-400 group-hover:text-stone-700 cursor-pointer" />
+                            <span className="absolute left-1/2 -translate-x-1/2 top-full mt-2 z-50 hidden group-hover:block bg-white border border-stone-200 rounded-xl shadow-lg p-3 text-xs text-stone-800 w-64">
+                              อัปโหลดไฟล์สไลด์ (.pptx) เพื่อให้ AI
+                              เข้าใจเนื้อหาการประชุมและช่วยสรุปได้แม่นยำยิ่งขึ้น
+                            </span>
+                          </span>
                         </div>
                       )}
                     </div>
@@ -1136,7 +988,19 @@ export default function MeetingsManager() {
       </div>
 
       {uploadMeeting && (
-        <UploadModal meeting={uploadMeeting} onClose={() => setUploadMeeting(null)} onSuccess={refetch} />
+        <UploadModal
+          meeting={uploadMeeting}
+          onClose={() => setUploadMeeting(null)}
+          onSuccess={refetch}
+        />
+      )}
+
+      {slideUploadMeeting && (
+        <SlideUploadModal
+          meeting={slideUploadMeeting}
+          onClose={handleCloseSlideUploadModal}
+          onSuccess={handleSlideUploadSuccess}
+        />
       )}
 
       {/* Modal for viewing transcript/notes */}
@@ -1148,9 +1012,13 @@ export default function MeetingsManager() {
               <div className="flex items-center gap-2">
                 <Info className="w-6 h-6 text-stone-700" />
                 <div>
-                  <div className="font-semibold text-base text-stone-800">{viewMeeting.title}</div>
+                  <div className="font-semibold text-base text-stone-800">
+                    {viewMeeting.title}
+                  </div>
                   <div className="text-xs text-stone-500">
-                    {viewMeeting.platform} | {viewMeeting.startTime && new Date(viewMeeting.startTime).toLocaleString("th-TH")}
+                    {viewMeeting.platform} |{" "}
+                    {viewMeeting.startTime &&
+                      new Date(viewMeeting.startTime).toLocaleString("th-TH")}
                   </div>
                 </div>
               </div>
@@ -1165,22 +1033,22 @@ export default function MeetingsManager() {
             <div className="flex space-x-2 px-6 pt-4">
               <button
                 className={`flex-1 px-4 py-2 rounded-xl text-xs font-medium transition-all duration-150 ${
-                  viewTab === 'transcript'
-                    ? 'bg-stone-800 text-white shadow'
-                    : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
+                  viewTab === "transcript"
+                    ? "bg-stone-800 text-white shadow"
+                    : "bg-stone-100 text-stone-700 hover:bg-stone-200"
                 }`}
-                onClick={() => setViewTab('transcript')}
+                onClick={() => setViewTab("transcript")}
               >
                 <FileText className="inline-block w-4 h-4 mr-1" />
                 Transcript
               </button>
               <button
                 className={`flex-1 px-4 py-2 rounded-xl text-xs font-medium transition-all duration-150 ${
-                  viewTab === 'notes'
-                    ? 'bg-stone-800 text-white shadow'
-                    : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
+                  viewTab === "notes"
+                    ? "bg-stone-800 text-white shadow"
+                    : "bg-stone-100 text-stone-700 hover:bg-stone-200"
                 }`}
-                onClick={() => setViewTab('notes')}
+                onClick={() => setViewTab("notes")}
               >
                 <FileCheck className="inline-block w-4 h-4 mr-1" />
                 สรุปประชุม
@@ -1188,9 +1056,11 @@ export default function MeetingsManager() {
             </div>
             {/* Content */}
             <div className="px-6 pb-6 pt-4 max-h-80 overflow-y-auto custom-scrollbar">
-              {viewTab === 'transcript' ? (
+              {viewTab === "transcript" ? (
                 viewMeeting.transcript ? (
-                  <div className="whitespace-pre-wrap text-sm text-stone-800">{viewMeeting.transcript}</div>
+                  <div className="whitespace-pre-wrap text-sm text-stone-800">
+                    {viewMeeting.transcript}
+                  </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center text-stone-400 py-8">
                     <span className="text-3xl mb-2">🗒️</span>
@@ -1198,7 +1068,9 @@ export default function MeetingsManager() {
                   </div>
                 )
               ) : viewMeeting.meetingNotes ? (
-                <div className="whitespace-pre-wrap text-sm text-stone-800">{viewMeeting.meetingNotes}</div>
+                <div className="whitespace-pre-wrap text-sm text-stone-800">
+                  {viewMeeting.meetingNotes}
+                </div>
               ) : (
                 <div className="flex flex-col items-center justify-center text-stone-400 py-8">
                   <span className="text-3xl mb-2">📄</span>
