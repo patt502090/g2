@@ -17,6 +17,14 @@ import { useQuery } from "@tanstack/react-query";
 import Head from "next/head";
 import { useUserEmail } from "./providers";
 import { createPortal } from "react-dom";
+import { Inter } from "next/font/google";
+import "./globals.css";
+import { ReactQueryProvider, UserEmailProvider } from "./providers";
+
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+});
 
 interface Meeting {
   id: string;
