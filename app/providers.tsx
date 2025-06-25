@@ -24,6 +24,7 @@ export function UserEmailProvider({ children }: { children: React.ReactNode }) {
   const [showEmailModal, setShowEmailModal] = useState<boolean>(false);
   const [isClient, setIsClient] = useState(false);
   const [inputEmail, setInputEmail] = useState<string>('');
+  const [emailError, setEmailError] = useState<string>('');
 
   useEffect(() => {
     setIsClient(true);
@@ -33,7 +34,11 @@ export function UserEmailProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const setUserEmail = (email: string) => {
-    if (!email || !email.includes('@')) return; // Basic email validation
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setEmailError('รูปแบบอีเมลไม่ถูกต้อง');
+      return;
+    }
+    setEmailError('');
     localStorage.setItem('userEmail', email);
     setUserEmailState(email);
     setShowEmailModal(false);
@@ -45,6 +50,7 @@ export function UserEmailProvider({ children }: { children: React.ReactNode }) {
     setUserEmailState('');
     setShowEmailModal(true);
     setInputEmail('');
+    setEmailError('');
   };
   
   const handleSetEmail = setUserEmail;
@@ -64,13 +70,17 @@ export function UserEmailProvider({ children }: { children: React.ReactNode }) {
               type="email"
               placeholder="your@email.com"
               value={inputEmail}
-              onChange={(e) => setInputEmail(e.target.value)}
-              className="w-full px-3 py-2 border border-stone-200 rounded-xl mb-3 text-xs"
+              onChange={(e) => {
+                setInputEmail(e.target.value);
+                if (emailError) setEmailError('');
+              }}
+              className="w-full px-3 py-2 border border-stone-200 rounded-xl mb-1 text-xs"
               onKeyDown={e => { if (e.key === 'Enter') handleSetEmail(inputEmail) }}
               autoFocus
             />
+            {emailError && <p className="text-red-500 text-xs mt-1 mb-2">{emailError}</p>}
             <button
-              className="w-full bg-stone-800 hover:bg-stone-900 text-white rounded-xl py-2 text-xs"
+              className="w-full bg-stone-800 hover:bg-stone-900 text-white rounded-xl py-2 text-xs mt-2"
               onClick={() => handleSetEmail(inputEmail)}
             >ยืนยัน</button>
           </div>
