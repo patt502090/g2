@@ -5,6 +5,7 @@
     "start": "next start"
   },
   "dependencies": {
+    "@tailwindcss/postcss": "^4.1.10",
     "@tanstack/react-query": "^5.80.10",
     "framer-motion": "^12.19.1",
     "lucide-react": "^0.523.0",
