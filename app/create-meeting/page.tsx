@@ -94,7 +94,8 @@ export default function CreateMeeting() {
   ]
   const ORGANIZER_CHOICES = [
     { id: "org1", name: "patt@example.com", color: "#f9a8d4" },
-    { id: "org221", name: "dev@dev2.com", color: "#f9a8d4" }
+    { id: "org221", name: "dev@dev2.com", color: "#f9a8d4" },
+    { id: "org222221", name: "dev@dev.com", color: "#f9a8d4" }
 
   ]
   const [formData, setFormData] = useState<{

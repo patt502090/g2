@@ -743,7 +743,7 @@ export default function MeetingsManager() {
               {filteredPaginatedMeetings.map((meeting: Meeting, idx) => {
                 const isPast = new Date(meeting.endTime) < now;
                 const isFirstPastInAll = meeting.id === firstPastId;
-                const meetingUrl = `/meetings/${meeting.id}`;
+                const meetingUrl = meeting.url || undefined;
                 const isOrganizer =
                   userEmail &&
                   meeting.organizer &&
@@ -853,10 +853,10 @@ export default function MeetingsManager() {
                               type="button"
                               className="p-1.5 rounded-full hover:bg-stone-100 transition-colors cursor-pointer"
                               onClick={() => {
-                                navigator.clipboard.writeText(
-                                  window.location.origin + meetingUrl
-                                );
-                                toast.success("คัดลอกลิงก์แล้ว!");
+                                if (meetingUrl) {
+                                  navigator.clipboard.writeText(meetingUrl);
+                                  toast.success("คัดลอกลิงก์แล้ว!");
+                                }
                               }}
                               title="คัดลอกลิงก์เข้าร่วม"
                             >

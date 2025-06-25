@@ -516,7 +516,7 @@ export default function CalendarPage() {
                                         href={
                                           isPast
                                             ? undefined
-                                            : `/meetings/${meeting.id}`
+                                            : meeting.url || undefined
                                         }
                                         target="_blank"
                                         rel="noopener noreferrer"
