@@ -23,6 +23,7 @@ export function UserEmailProvider({ children }: { children: React.ReactNode }) {
   const [userEmail, setUserEmailState] = useState<string>('');
   const [showEmailModal, setShowEmailModal] = useState<boolean>(false);
   const [isClient, setIsClient] = useState(false);
+  const [inputEmail, setInputEmail] = useState<string>('');
 
   useEffect(() => {
     setIsClient(true);
@@ -32,15 +33,20 @@ export function UserEmailProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const setUserEmail = (email: string) => {
+    if (!email || !email.includes('@')) return; // Basic email validation
     localStorage.setItem('userEmail', email);
     setUserEmailState(email);
     setShowEmailModal(false);
+    setInputEmail(''); // Reset input after successful submission
   };
+
   const clearUserEmail = () => {
     localStorage.removeItem('userEmail');
     setUserEmailState('');
     setShowEmailModal(true);
+    setInputEmail('');
   };
+  
   const handleSetEmail = setUserEmail;
   const handleChangeEmail = clearUserEmail;
 
@@ -57,16 +63,15 @@ export function UserEmailProvider({ children }: { children: React.ReactNode }) {
             <input
               type="email"
               placeholder="your@email.com"
+              value={inputEmail}
+              onChange={(e) => setInputEmail(e.target.value)}
               className="w-full px-3 py-2 border border-stone-200 rounded-xl mb-3 text-xs"
-              onKeyDown={e => { if (e.key === 'Enter') handleSetEmail((e.target as HTMLInputElement).value) }}
+              onKeyDown={e => { if (e.key === 'Enter') handleSetEmail(inputEmail) }}
               autoFocus
             />
             <button
               className="w-full bg-stone-800 hover:bg-stone-900 text-white rounded-xl py-2 text-xs"
-              onClick={() => {
-                const input = document.querySelector<HTMLInputElement>('input[type=email]')
-                if (input && input.value) handleSetEmail(input.value)
-              }}
+              onClick={() => handleSetEmail(inputEmail)}
             >ยืนยัน</button>
           </div>
         </div>
